@@ -1,16 +1,19 @@
 {
   "chainId": 84532,
   "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
-  "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
+  "deployGasEth": "0.0001068",
+  "doubleSettleTx": "9afb1dcedff79dd9853117e9a821ef9816527b3ad066f6d62f1b011ec3620b94",
+  "evidenceV1": "b065892e38c0ade5cdf1da68d19a8e26b5ae2bc0ac71700db829c533f39e32db",
+  "evidenceV2": "f5b4714c393554e1c68d36de029c439c077f9d914f63607bb9e7d625947ab911",
   "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
-  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "holdTx": "e493ef893a9004922b9999a2005cacb70f93c7a1d55a4c45643fc802913da0ec",
+  "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
+  "releaseTx": "4b2a020f288720366ab8dad9a33056195e8b820847f6cb4095fbef11a7c4c05d",
   "roles": {
     "buyer": "0x3991d5267e013fb9d5f2fbb30b8f3d8ff97c1ad9",
-    "provider": "0x20fd7bec60829230a1cfbe4caf25a12ab2e49aa9",
-    "evaluator": "0x617b0e8d15c3a48ddf2ec70ab17bf7cc7dbf3046"
+    "evaluator": "0x617b0e8d15c3a48ddf2ec70ab17bf7cc7dbf3046",
+    "provider": "0x20fd7bec60829230a1cfbe4caf25a12ab2e49aa9"
   },
-  "evidenceV1": "error: unexpected argument '--rpc-url' found\n\n  tip: to pass '--rpc-url' as a value, use '-- --rpc-url'\n\nUsage: cast keccak <DATA>\n\nFor more information, try '--help'.",
-  "evidenceV2": "error: unexpected argument '--rpc-url' found\n\n  tip: to pass '--rpc-url' as a value, use '-- --rpc-url'\n\nUsage: cast keccak <DATA>\n\nFor more information, try '--help'.",
-  "releaseTx": null,
-  "staleHoldTx": "see gate_hold in run log"
+  "staleHoldTx": "e493ef893a9004922b9999a2005cacb70f93c7a1d55a4c45643fc802913da0ec",
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 }
