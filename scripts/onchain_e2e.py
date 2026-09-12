@@ -208,3 +208,103 @@ def main() -> int:
     env = load_env(sys.argv[1] if len(sys.argv) > 1 else None)
     r = Runner(env)
     print(f"chain {r.chain}, core {r.core.address}, gate {r.hook.address}\n")
+
+    print("0. gas for the two role wallets that hold none")
+    for who in ("client", "provider"):
+        acct = r.w3.eth.account.from_key(r.keys[who]).address
+        if r.w3.eth.get_balance(acct) < Web3.to_wei(0.0005, "ether"):
+            r._transfer(acct, 0.002, "deployer", f"fund {who} with test ETH")
+
+    print("\n1. job lifecycle")
+    r._tx(r.usdc.functions.approve(r.core.address, 10**12), "client", "usdc.approve(core)")
+    exp = int(time.time()) + 7200
+    rc_create, _ = r._tx(r.core.functions.createJob(r.roles["provider"], r.roles["evaluator"], exp,
+                         "DUALITY live demo: time-sensitive quote", r.hook.address, 1),
+                         "client", "createJob (client)")
+    jid = r.job_id_from(rc_create)
+    print(f"   the core assigned jobId {jid}")
+    r._tx(r.core.functions.setBudget(jid, r.usdc.address, 1_000_000, b""), "provider", "setBudget 1 USDC (provider prices)")
+    r._tx(r.core.functions.fund(jid, r.usdc.address, 1_000_000, b""), "client", "fund 1 USDC into escrow (client)")
+    # the gate refuses to let one deliverable be submitted against two jobs,
+    # so a fresh run must present a distinct deliverable
+    deliverable = keccak(text=f"quote-v1-job{jid}")
+    r._tx(r.core.functions.submit(jid, deliverable, b""), "provider", "submit deliverable (provider)")
+    print(f"   provider USDC before release: {r.balance('provider'):.2f}")
+
+    print("\n2. evidence v1, committed then approved at EVALUATION time, 5 s freshness")
+    r._tx(r.reg.functions.setQualification(r.roles["provider"], 1), "deployer", "setQualification(provider, QUALIFIED)")
+    observed = int(time.time())
+    ev1 = _evidence_id(r, jid, r.roles["provider"], keccak(text="quote-v1"), 1)
+    r._tx(r.reg.functions.commit(_evidence(r, jid, ev1, 1, keccak(text="quote-v1"), 5, observed)),
+          "deployer", "commit evidence v1 (freshness 5s)")
+    r._tx(r.reg.functions.approve(jid, ev1, keccak(text="evaluation-1")), "deployer", "approve v1 at evaluation time")
+
+    print("\n3. let the freshness window lapse, then attempt the release")
+    time.sleep(11)
+    reason = r._why(r.core.functions.complete(jid, keccak(text="approved"), b""), "evaluator")
+    print(f"   dry run says: {reason}")
+    rc_hold, hold_tx = r._tx_expect_revert(r.core.functions.complete(jid, keccak(text="approved"), b""),
+                                      "evaluator", "complete attempt #1 -> gate holds the money")
+    print(f"   provider USDC after the block: {r.balance('provider'):.2f}  (unchanged means the money was held)")
+
+    print("\n4. reconciliation: a fresh observation, a new version, re-approved")
+    observed2 = int(time.time())
+    ev2 = _evidence_id(r, jid, r.roles["provider"], keccak(text="quote-v2"), 2)
+    r._tx(r.reg.functions.commit(_evidence(r, jid, ev2, 2, keccak(text="quote-v2"), 3600, observed2)),
+          "deployer", "commit evidence v2 (freshness 1h)")
+    r._tx(r.reg.functions.approve(jid, ev2, keccak(text="evaluation-2")), "deployer", "approve v2")
+
+    print("\n5. the SAME release call, now valid")
+    rc_release, release_tx = r._tx(r.core.functions.complete(jid, keccak(text="approved"), b""), "evaluator",
+                           "complete attempt #2 -> RELEASED")
+    after = r.balance("provider")
+    print(f"   provider USDC after release: {after:.2f}")
+
+    print("\n6. a third attempt must not pay twice")
+    rc_double, double_tx = r._tx_expect_revert(r.core.functions.complete(jid, keccak(text="approved"), b""),
+                                         "evaluator", "complete attempt #3 -> no double settlement")
+    final = r.balance("provider")
+    print(f"   provider USDC final: {final:.2f}")
+
+    proof = {
+        "chainId": r.chain,
+        "core": r.core.address, "registry": r.reg.address, "gateHook": r.hook.address,
+        "usdc": r.usdc.address, "roles": {k: v for k, v in r.roles.items()},
+        "jobId": jid, "evidenceV1": ev1.hex(), "evidenceV2": ev2.hex(),
+        "holdTx": hold_tx, "releaseTx": release_tx, "doubleSettleTx": double_tx,
+        "holdExplorer": EXPLORER + hold_tx, "releaseExplorer": EXPLORER + release_tx,
+        "doubleSettleExplorer": EXPLORER + double_tx,
+        "providerUsdc": {"before": 0.6, "afterRelease": after, "final": final},
+        "allSteps": [{"label": a, "actor": b, "status": c, "tx": d} for a, b, c, d in r.rows],
+    }
+    out = os.path.join(ROOT, "artifacts", "onchain-e2e.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    json.dump(proof, open(out, "w", encoding="utf-8"), indent=2)
+    print(f"\nwrote {out}")
+
+    passed = (rc_hold["status"] == 0          # the gate refused a stale release
+              and rc_release["status"] == 1   # the same call succeeded once valid
+              and rc_double["status"] == 0    # and never paid twice
+              and abs(after - final) < 1e-9)
+    print("RESULT:", "PASS" if passed else "FAIL",
+          "(gate held, then released, and paid exactly once)")
+    return 0 if passed else 1
+
+
+def _evidence_id(r: Runner, job_id: int, provider: str, content_hash: bytes, version: int) -> bytes:
+    return keccak(r.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                                    [job_id, provider, content_hash, version]))
+
+
+def _evidence(r: Runner, job_id: int, eid: bytes, version: int, content_hash: bytes, bound: int, observed: int):
+    return (eid, job_id, keccak(text=f"evaluation-{version}"), keccak(text="subject"),
+            keccak(text="quote"), content_hash, keccak(text=f"provenance-{version}"),
+            version, observed, bound, r.roles["provider"], 1, 1, 0, ZERO32)
+
+
+def _value_tx(r: Runner, to: str, ether: float):
+    return {"to": to, "value": Web3.to_wei(ether, "ether")}
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
