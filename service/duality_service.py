@@ -250,3 +250,49 @@ class State:
         self.counters["released"] += 1
         return self.event("released", corr, jobId=job_id, via="keeperhub", executionId=exid,
                           status=sent.get("status"), transactionLink=link)
+
+    def _writes_visible(self, job_id: int) -> bool:
+        """True once the approval binds the current version, i.e. our writes are readable."""
+        approved = self.ch.reg.functions.approval(job_id).call()[0]
+        subject = keccak(text="subject")
+        ver = self.ch.reg.functions.currentVersion(job_id, subject).call()
+        current = self.ch.reg.functions.versionEvidence(job_id, subject, ver).call()
+        return approved == current
+
+    def _settled_read(self, job_id: int, tries: int = 6, pause: float = 2.0) -> dict:
+        """Read the predicate only after our own writes are visible.
+
+        Reading straight after a write can return the previous state, because a
+        node can confirm a transaction before the view it serves reflects it. We
+        saw that make a successful reconciliation report as a failure, so the
+        counter waits for the write to be readable before it believes the answer.
+        """
+        for _ in range(tries):
+            if self._writes_visible(job_id):
+                return self.predicate(job_id)
+            time.sleep(pause)
+        return self.predicate(job_id)
+
+    def reconcile(self, job_id: int, corr: str) -> dict:
+        """Re-observe the minimum fact, then re-run the same predicate."""
+        before = self.predicate(job_id)
+        if before["ok"]:
+            return self.event("reconciliation_skipped", corr, jobId=job_id, reason="already valid")
+        rec = self.observe(job_id, 3600, corr)
+        ver = rec["version"]
+        self.approve(job_id, corr)
+        after = self._settled_read(job_id)
+        rec = self.event("reconciled", corr, jobId=job_id, before=before["reasonCode"],
+                         after=after["reasonCode"], replacementVersion=ver, ok=after["ok"])
+        self.reconciliations[job_id] = {"before": before, "after": after, "event": rec["id"]}
+        self.counters["reconciliations"] += 1
+        self.counters["reconciliation_succeeded"] += 1 if after["ok"] else 0
+        return rec
+
+
+STATE: State | None = None
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "duality/0.1"
+
