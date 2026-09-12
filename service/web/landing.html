@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUALITY: a release gate for ERC-8183</title>
+<meta name="description" content="An ERC-8183 evaluator approves the work. DUALITY makes the approval checkable at the instant the money moves, and refuses the release when it lapsed.">
+<link rel="stylesheet" href="duality.css">
+</head>
+<body class="s-dark">
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="mark" href="/"><i aria-hidden="true"></i><span class="wordmark">DUALITY</span></a>
+    <div class="navlinks">
+      <a href="#gap">The gap</a>
+      <a href="#predicate">The predicate</a>
+      <a href="#proof">The proof</a>
+      <a href="#honest">The limits</a>
+    </div>
+    <a class="btn btn-ghost" href="/dashboard">Dashboard</a>
+  </div>
+</nav>
+
+<!-- ================================ hero ================================ -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-left">
+      <p class="eyebrow">ERC-8183 &middot; Base Sepolia</p>
+      <h1 class="display">Approved is<br><span class="outline">not releasable.</span></h1>
+      <p class="lede">The evaluator approves the work. The gate re-reads validity when money moves, and refuses a lapsed approval.</p>
+      <div class="hero-cta">
+        <a class="btn btn-solid" href="#run">Run it locally</a>
+        <a class="btn btn-ghost" href="https://github.com/subheeksh5599/duality">Read the contract</a>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:baseline;margin-bottom:14px">
+        <span class="mono dim" style="font-size:12px">four release attempts</span>
+        <span class="mono dim" style="font-size:12px">signed by KeeperHub</span>
+      </div>
+      <div class="ledger">
+        <div class="attempt" title="0x455f5355504552534544454400000000000000000000000000000000000000">
+          <code class="code">E_SUPERSEDED</code>
+          <span class="job">job 17 &middot; HTTP 400</span>
+        </div>
+        <div class="attempt" title="0x455f4449535155414c4946494544000000000000000000000000000000000000">
+          <code class="code">E_DISQUALIFIED</code>
+          <span class="job">job 18 &middot; HTTP 400</span>
+        </div>
+        <div class="attempt" title="0x455f5354414c4500000000000000000000000000000000000000000000000000">
+          <code class="code">E_STALE</code>
+          <span class="job">job 19 &middot; HTTP 400</span>
+        </div>
+        <div class="attempt" title="0x455f4e4f545f415050524f564544000000000000000000000000000000000000">
+          <code class="code">E_NOT_APPROVED</code>
+          <span class="job">job 20 &middot; HTTP 400</span>
+        </div>
+      </div>
+      <p class="mono dim" style="font-size:12.5px;margin:18px 0 0;line-height:1.7">
+        Every one refused at the moment of release, before any transfer. Hover a row for
+        the raw revert data. One released later, after the state was reconciled.
+      </p>
+    </div>
+  </div>
+</header>
+
+<!-- ================================ the gap ============================= -->
+<section class="section" id="gap">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:22ch">An approval is a fact with a timestamp. Settlement is a second event.</h2>
+    <p class="lede">Between the two, the facts the approval rested on can change. The standard does not re-read them.</p>
+
+    <div class="compare">
+      <div>
+        <p class="mono dim" style="font-size:12px;margin:0">At evaluation</p>
+        <ul class="rows">
+          <li><span class="tick">yes</span><span><b>The client funds the job.</b><p>The budget is escrowed by the core contract.</p></span></li>
+          <li><span class="tick">yes</span><span><b>The provider submits a deliverable.</b><p>The job moves to Submitted.</p></span></li>
+          <li><span class="tick">yes</span><span><b>An evaluator signs off.</b><p>Against the proof of agreement, and only the evaluator can.</p></span></li>
+          <li><span class="tick">yes</span><span><b>Settlement pays the provider.</b><p>Or refunds the client, if the job is rejected or expires.</p></span></li>
+        </ul>
+      </div>
+      <div>
+        <p class="mono dim" style="font-size:12px;margin:0">At release, unchanged by the standard</p>
+        <ul class="rows">
+          <li><span class="tick off">no</span><span><b>A newer observation exists.</b><p>Someone re-read the same subject. The approval still points at the old version.</p></span></li>
+          <li><span class="tick off">no</span><span><b>The provider was disqualified.</b><p>Qualification can be revoked between evaluation and payout.</p></span></li>
+          <li><span class="tick off">no</span><span><b>The reading went stale.</b><p>The freshness bound lapsed while the job waited for settlement.</p></span></li>
+          <li><span class="tick off">no</span><span><b>No approval is bound.</b><p>Nothing ties the payout to a specific evaluation.</p></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== predicate ============================= -->
+<section class="section" id="predicate">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:26ch">Ten clauses, and every one of them is machine-checkable.</h2>
+    <p class="lede">One view function holds the predicate. The hook calls it on the release path and the service calls it for its own decision, so there is no second implementation for them to disagree about.</p>
+
+    <div class="clusters">
+      <div class="cluster">
+        <header>
+          <span class="mono dim" style="font-size:12px">Identity and binding</span>
+          <span class="mono dim" style="font-size:12px">what the approval points at</span>
+        </header>
+        <div class="clause"><span class="n">01</span><span class="what">The job is approved and releasable</span><span class="why">Enforced by the core: <code>complete()</code> is evaluator-only and the job must be Submitted.</span><span class="code">core</span></div>
+        <div class="clause"><span class="n">02</span><span class="what">The evidence belongs to this job</span><span class="why">A record from another job cannot be spent here.</span><span class="code">E_SUBJECT</span></div>
+        <div class="clause"><span class="n">03</span><span class="what">The approval binds that exact evidence</span><span class="why">The approval stores an evidenceId, so it cannot drift to newer evidence.</span><span class="code">E_NOT_APPROVED</span></div>
+      </div>
+
+      <div class="cluster">
+        <header>
+          <span class="mono dim" style="font-size:12px">Time and version</span>
+          <span class="mono dim" style="font-size:12px">what the clock does to it</span>
+        </header>
+        <div class="clause"><span class="n">04</span><span class="what">That version is still the current one</span><span class="why">A strictly greater version for the same subject supersedes it.</span><span class="code">E_SUPERSEDED</span></div>
+        <div class="clause"><span class="n">05</span><span class="what">Inside the freshness bound</span><span class="why">Inclusive at the boundary: valid until <code>observedAt + freshnessBound</code>, stale one second later.</span><span class="code">E_STALE</span></div>
+      </div>
+
+      <div class="cluster">
+        <header>
+          <span class="mono dim" style="font-size:12px">Authority</span>
+          <span class="mono dim" style="font-size:12px">who was allowed to say it</span>
+        </header>
+        <div class="clause"><span class="n">06</span><span class="what">Qualified when the reading was taken</span><span class="why">A reading from an unqualified provider is not evidence, however recent.</span><span class="code">E_QUAL_OBSERVATION</span></div>
+        <div class="clause"><span class="n">07</span><span class="what">And still qualified now</span><span class="why">Revocation between observation and release blocks the payout.</span><span class="code">E_DISQUALIFIED</span></div>
+      </div>
+
+      <div class="cluster">
+        <header>
+          <span class="mono dim" style="font-size:12px">Boundaries</span>
+          <span class="mono dim" style="font-size:12px">the edges, including the ones not closed</span>
+        </header>
+        <div class="clause"><span class="n">08</span><span class="what">The provenance envelope matches</span><span class="why">Declared in the specification, <b>not enforced</b>. The hash is stored so the envelope stays auditable, but no branch reads it. Recorded in <code>docs/LIMITATIONS.md</code>.</span><span class="code">open</span></div>
+        <div class="clause"><span class="n">09</span><span class="what">Job conditions hold</span><span class="why">Delegated to an external oracle. When none is configured, vacuously true.</span><span class="code">oracle</span></div>
+        <div class="clause"><span class="n">10</span><span class="what">The job has not already settled</span><span class="why">The second release attempt on a settled job is refused.</span><span class="code">E_ALREADY_SETTLED</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ the release: the one inversion to white ================ -->
+<section class="section s-light" id="proof">
+  <div class="wrap">
+    <p class="eyebrow">Live on Base Sepolia</p>
+    <h2 class="h2" style="max-width:24ch">Four ways an approval goes stale, and the gate refused all four.</h2>
+    <p class="lede">Every attempt was submitted by KeeperHub's own signer against the deployed core. A refusal produces no transaction, which is the point: the money never moved.</p>
+
+    <div class="receipts">
+      <div class="receipt receipt-head">
+        <span>reason</span><span>job and status</span><span>decoded result</span><span>outcome</span>
+      </div>
+      <div class="receipt">
+        <span class="code">E_SUPERSEDED</span>
+        <span class="job">job 17 &middot; 400</span>
+        <span class="decoded">ReleaseBlocked(jobId=17, reason=E_SUPERSEDED)</span>
+        <span class="mono dim" style="font-size:12px">held</span>
+      </div>
+      <div class="receipt">
+        <span class="code">E_DISQUALIFIED</span>
+        <span class="job">job 18 &middot; 400</span>
+        <span class="decoded">ReleaseBlocked(jobId=18, reason=E_DISQUALIFIED)</span>
+        <span class="mono dim" style="font-size:12px">held</span>
+      </div>
+      <div class="receipt">
+        <span class="code">E_STALE</span>
+        <span class="job">job 19 &middot; 400</span>
+        <span class="decoded">ReleaseBlocked(jobId=19, reason=E_STALE)</span>
+        <span class="mono dim" style="font-size:12px">held</span>
+      </div>
+      <div class="receipt">
+        <span class="code">E_NOT_APPROVED</span>
+        <span class="job">job 20 &middot; 400</span>
+        <span class="decoded">ReleaseBlocked(jobId=20, reason=E_NOT_APPROVED)</span>
+        <span class="mono dim" style="font-size:12px">held</span>
+      </div>
+      <div class="receipt">
+        <span class="code ok">OK</span>
+        <span class="job">job 17 &middot; re-observed</span>
+        <span class="decoded">after reconcile: completed, execution 05d269jk3yx0xpllgsf6l, tx 0x7640ff10</span>
+        <a href="https://sepolia.basescan.org/tx/0x7640ff105a0ebcab9229f9ecfba803a64aabe1adadf881dd28d2af9caf351e5c">released</a>
+      </div>
+    </div>
+
+    <div class="status" style="margin-top:64px">
+      <section>
+        <p class="mono dim" style="font-size:12px;margin:0">Also on chain</p>
+        <ul>
+          <li><span class="mono dim">01</span><span>A full lifecycle: create, price, fund, submit, approve, release. 13 transactions on chain 84532.</span></li>
+          <li><span class="mono dim">02</span><span>The first release attempt held the money at <code>E_STALE</code>. The provider balance went 0.60 to 2.60 USDC only after the second.</span></li>
+          <li><span class="mono dim">03</span><span>A third attempt on the settled job was refused, so one job pays once.</span></li>
+        </ul>
+      </section>
+      <section>
+        <p class="mono dim" style="font-size:12px;margin:0">What a refusal looks like</p>
+        <ul>
+          <li><span class="mono dim">01</span><span>The simulation returns <code>wouldRevert: true</code> with the reason decoded from the hook's own error type, not the core's.</span></li>
+          <li><span class="mono dim">02</span><span>The gate reverts the release call, so the payout and the status change unwind together.</span></li>
+          <li><span class="mono dim">03</span><span>Nothing is broadcast, because the simulation is what decides whether there is anything to broadcast.</span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= order of operations ======================== -->
+<section class="section" id="order">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:20ch">The gate is not advisory.</h2>
+    <p class="lede">It is a hook on the release path itself. The core calls it while the job is still Submitted, before the status changes and before any transfer, so a refusal takes the payment with it.</p>
+
+    <div class="codewrap">
+      <pre class="code"><span class="c">// erc-8183 core, abridged. The hook call is the gate.</span>
+<span class="c">// the selector is the public complete(), which calls this helper.</span>
+<span class="k">function</span> _complete(
+    address actor,
+    uint256 jobId,
+    bytes32 reason,
+    bytes calldata optParams
+) internal {
+    Job storage job = jobs[jobId];
+    <span class="k">if</span> (job.status != JobStatus.Submitted) revert WrongStatus();
+    <span class="k">if</span> (actor != job.evaluator) revert Unauthorized();
+
+    bytes memory data = abi.encode(actor, reason, optParams);
+    <span class="hl">_beforeHook(job.hook, jobId, this.complete.selector, data);</span>
+
+    job.status = JobStatus.Completed;
+
+    uint256 amount = job.budget - job.settledAmount;
+    uint256 net = amount - platformFee - evalFee;
+    _payout(jobId, job, net, this.complete.selector, optParams);
+
+    emit JobCompleted(jobId, actor, reason);
+    _afterHook(job.hook, jobId, this.complete.selector, data);
+}</pre>
+
+      <ul class="notes">
+        <li>
+          <b>It runs before the status change.</b>
+          <p>The job is still <code>Submitted</code> when the gate is called. A revert unwinds the entire call, so there is no window in which the job looks complete and the payment has not happened.</p>
+        </li>
+        <li>
+          <b>And before the payout.</b>
+          <p>The platform fee, the evaluator fee and the provider payout all sit after the hook returns. Refusing the release refuses all three.</p>
+        </li>
+        <li>
+          <b>Refunds are deliberately not hookable.</b>
+          <p>The core documents <code>claimRefund</code> as not hookable. A gate that could block a refund could trap a client's money, so that path is closed to it by construction.</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== sequence ============================= -->
+<section class="section" id="release">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:22ch">How the money actually moves.</h2>
+    <p class="lede">The release is not signed by a script in this repository. It is submitted through KeeperHub, and its record is read back.</p>
+
+    <div class="seq">
+      <div>
+        <span class="mono dim" style="font-size:12px">01</span>
+        <p class="verb">Simulate</p>
+        <p>The call is simulated first. If the gate would revert, nothing is signed and nothing is broadcast.</p>
+        <div class="kv"><span>wouldRevert</span><span>true</span></div>
+        <div class="kv"><span>reason</span><span>E_STALE</span></div>
+        <div class="kv"><span>http</span><span>400</span></div>
+      </div>
+      <div>
+        <span class="mono dim" style="font-size:12px">02</span>
+        <p class="verb">Broadcast</p>
+        <p>Only a clean simulation is submitted. KeeperHub signs with its own wallet, so the release is not attributable to the evaluator's key.</p>
+        <div class="kv"><span>execution</span><span>qyn8k10j5mv6529c5cjtu</span></div>
+        <div class="kv"><span>status</span><span>completed</span></div>
+        <div class="kv"><span>sponsored</span><span>true</span></div>
+      </div>
+      <div>
+        <span class="mono dim" style="font-size:12px">03</span>
+        <p class="verb">Poll</p>
+        <p>The execution is polled to a terminal state and the transaction is recorded, so the decision and the transfer share one trail.</p>
+        <div class="kv"><span>tx</span><span>0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== honest ============================= -->
+<section class="section" id="honest">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:18ch">What is real, and what is not.</h2>
+    <p class="lede">A gate that gets its own claims wrong is worth nothing, so the gaps are listed here rather than left to be found.</p>
+
+    <div class="status">
+      <section>
+        <p class="mono dim" style="font-size:12px;margin:0">Real, with an artifact behind it</p>
+        <ul>
+          <li><span class="mono dim">ok</span><span>Ten contract tests pass against the real ERC-8183 core on a UUPS proxy, not a mock.</span></li>
+          <li><span class="mono dim">ok</span><span>Four invalidation classes proven live, each with the release refused and the balance unmoved.</span></li>
+          <li><span class="mono dim">ok</span><span>KeeperHub simulates, broadcasts and is read back, with the execution id recorded.</span></li>
+          <li><span class="mono dim">ok</span><span>The service drives its own release over HTTP, and the reconciliation of a held job ends in a completed execution.</span></li>
+        </ul>
+      </section>
+      <section>
+        <p class="mono dim" style="font-size:12px;margin:0">Not done, and named</p>
+        <ul>
+          <li><span class="sig">-</span><span>Clause 8, the provenance comparison, is declared in the specification and not enforced in the predicate.</span></li>
+          <li><span class="sig">-</span><span>The contracts are not verified on Basescan, so the source is not published there.</span></li>
+          <li><span class="sig">-</span><span>Testnet only. Nothing here has touched mainnet or real funds.</span></li>
+          <li><span class="sig">-</span><span>The ACP agent identity exists but is not wired into this flow. These are ERC-8183 jobs, which is the standard ACP implements.</span></li>
+          <li><span class="sig">-</span><span>No scheduler. A held job waits for someone to reconcile it.</span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ run =============================== -->
+<section class="section" id="run">
+  <div class="wrap">
+    <h2 class="h2" style="max-width:16ch">Run it locally.</h2>
+    <p class="lede">Nothing here needs a hosted service. The contracts build from source and the proof scripts read their configuration from the environment.</p>
+
+    <div class="cmd">
+      <div class="cmd-head">
+        <span class="mono dim" style="font-size:12px">bash</span>
+        <span class="mono dim" style="font-size:12px">Base Sepolia, chain 84532</span>
+      </div>
+<pre>git clone https://github.com/subheeksh5599/duality &amp;&amp; cd duality
+
+<span class="cmt"># contracts. lib/ is gitignored, so install the two upstream dependencies.</span>
+cd contracts
+forge install erc-8183/base-contracts --no-git
+forge install OpenZeppelin/openzeppelin-contracts --no-git
+forge build &amp;&amp; forge test
+
+<span class="cmt"># the service, which serves this page and the dashboard</span>
+cd .. &amp;&amp; python3 -m venv .venv &amp;&amp; .venv/bin/pip install web3
+cp .env.example .env &amp;&amp; $EDITOR .env
+export DUALITY_ENV=.env
+.venv/bin/python service/duality_service.py --port 8787
+
+<span class="cmt"># then open http://127.0.0.1:8787/dashboard</span></pre>
+    </div>
+
+    <div class="reqs">
+      <div>
+        <span class="mono dim" style="font-size:12px">01</span>
+        <p>Python 3.11 or newer, and Foundry for the contracts.</p>
+      </div>
+      <div>
+        <span class="mono dim" style="font-size:12px">02</span>
+        <p>A Base Sepolia RPC endpoint, plus three funded role accounts.</p>
+      </div>
+      <div>
+        <span class="mono dim" style="font-size:12px">03</span>
+        <p>A KeeperHub API key. Supply it through the environment, never a committed file.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== footer ============================== -->
+<footer class="footer">
+  <div class="wrap">
+    <dl class="addrs">
+      <div>
+        <dt>ERC-8183 core</dt>
+        <dd><a href="https://sepolia.basescan.org/address/0x86b951233E131d2dc0931aeB70ebc9Da17e998f6">0x86b951233E131d2dc0931aeB70ebc9Da17e998f6</a></dd>
+      </div>
+      <div>
+        <dt>Evidence registry</dt>
+        <dd><a href="https://sepolia.basescan.org/address/0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3">0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3</a></dd>
+      </div>
+      <div>
+        <dt>Gate hook</dt>
+        <dd><a href="https://sepolia.basescan.org/address/0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438">0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438</a></dd>
+      </div>
+    </dl>
+    <div class="footer-base">
+      <span>Base Sepolia, chain 84532. Testnet only, no real funds.</span>
+      <span class="mono">
+        <a href="https://github.com/subheeksh5599/duality">Repository</a>
+        &nbsp;&nbsp;
+        <a href="https://github.com/subheeksh5599/duality/blob/master/docs/LIMITATIONS.md">Limitations</a>
+        &nbsp;&nbsp;
+        <a href="https://github.com/subheeksh5599/duality/blob/master/docs/PROTOCOL-SPEC.md">Specification</a>
+        &nbsp;&nbsp;
+        <a href="/dashboard">Dashboard</a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

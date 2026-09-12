@@ -91,9 +91,11 @@ conditions before them are clear.
 | `POST /jobs/{id}/reconcile` | re-observe the minimum fact and re-run the predicate |
 | `POST /jobs/{id}/release` | simulate through KeeperHub, broadcast only if the gate allows |
 
-`service/ui.html` is served by the same process at `/`. It reads only from these
-endpoints, so every number and state it shows comes from the chain. It has no
-build step and no mock data.
+`service/web/dashboard.html` is served by the same process at `/dashboard`, and
+`service/web/landing.html` at `/`. Both read only from these endpoints, so every
+number and state they show comes from the chain. Neither has a build step, a
+bundler or mock data, and the web assets are served through an allowlist so a
+crafted path cannot leave the directory.
 
 ## Audit log
 

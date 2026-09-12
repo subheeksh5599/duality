@@ -11,3 +11,6 @@ web/.next/
 __pycache__/
 *.log
 .pytest_cache/
+.venv/
+contracts/broadcast/
+contracts/cache/

@@ -36,6 +36,22 @@ from eth_utils import keccak  # noqa: E402
 
 ROOT = K.ROOT
 EVENTS = os.path.join(ROOT, "artifacts", "events.jsonl")
+
+# The web assets are addressed through an allowlist rather than a path join, so
+# a crafted request cannot walk out of this directory.
+WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+STATIC = {
+    "/": ("landing.html", "text/html; charset=utf-8"),
+    "/index.html": ("landing.html", "text/html; charset=utf-8"),
+    "/dashboard": ("dashboard.html", "text/html; charset=utf-8"),
+    "/dashboard.html": ("dashboard.html", "text/html; charset=utf-8"),
+    "/duality.css": ("duality.css", "text/css; charset=utf-8"),
+    "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
+}
+FONTS = {
+    "Geist-Regular.woff2", "Geist-Medium.woff2", "Geist-SemiBold.woff2",
+    "GeistMono-Regular.woff2", "GeistMono-Medium.woff2",
+}
 ZERO32 = b"\x00" * 32
 REASON = {
     "E_NOT_APPROVED": "no approval is bound to this job",
@@ -93,6 +109,27 @@ class State:
             return json.loads(lines[-1])["id"] if lines else None
         except Exception:  # noqa: BLE001
             return None
+
+    def recorded(self) -> dict:
+        """Totals folded from the audit log rather than from process memory.
+
+        The log is the record; the counters in memory are not. Reading them from
+        memory meant a restarted service showed zeros next to a log full of
+        state changes, which reads as a broken surface.
+        """
+        k = Counter(e.get("kind") for e in self.history(limit=100000))
+        rec = {
+            "held": k["release_held"],
+            "released": k["released"],
+            "reconciliations": k["reconciled"],
+            "observations": k["evidence_observed"],
+            "approvals": k["evidence_approved"],
+            "checks": k["release_checked"],
+            "mutations": k["fact_mutated"],
+        }
+        rec["reconciliation_succeeded"] = sum(
+            1 for e in self.history(limit=100000) if e.get("kind") == "reconciled" and e.get("ok"))
+        return rec
 
     def history(self, limit: int = 200) -> list[dict]:
         if not os.path.exists(EVENTS):
@@ -308,23 +345,30 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_html(self, path: str):
+    def _send_file(self, path: str, ctype: str):
         body = open(path, "rb").read()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        if ctype.startswith("font/"):
+            self.send_header("Cache-Control", "public, max-age=604800, immutable")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):  # noqa: N802
         self.corr = uuid.uuid4().hex
         try:
-            if self.path in ("/", "/index.html"):
-                ui = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui.html")
-                return self._send_html(ui)
+            if self.path in STATIC:
+                name, ctype = STATIC[self.path]
+                return self._send_file(os.path.join(WEB, name), ctype)
+            if self.path.startswith("/fonts/"):
+                name = self.path[len("/fonts/"):]
+                if name in FONTS:
+                    return self._send_file(os.path.join(WEB, "fonts", name), "font/woff2")
+                return self._send(404, {"error": "not found", "correlationId": self.corr})
             if self.path == "/health":
                 return self._send(200, {"ok": True, "chainId": STATE.ch.dep["chainId"],
-                                        "core": STATE.ch.dep["core"], "counters": dict(STATE.counters)})
+                                        "core": STATE.ch.dep["core"], "counters": STATE.recorded()})
             if self.path == "/events":
                 return self._send(200, {"events": STATE.history()})
             if self.path.startswith("/jobs/"):
