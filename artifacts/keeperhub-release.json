@@ -1,0 +1,49 @@
+{
+  "network": "base-sepolia",
+  "keeperHubWallet": "0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf",
+  "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+  "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
+  "fundTx": "9d2eb7b02bc64e2535c533077736568402639fb566d624ba796dd3bb9b9ec5c0",
+  "jobId": 7,
+  "evidenceV1": "1df6946624fab1e8504ce973063c15fa20f06c935c019e93f27929c5cd4dd262",
+  "keeperHubHoldSimulation": {
+    "httpStatus": 400,
+    "success": false,
+    "wouldRevert": true,
+    "revertReason": "Simulation reverted: execution reverted (unknown custom error) (action=\"call\", data=\"0x5192a3c50000000000000000000000000000000000000000000000000000000000000007455f5354414c4500000000000000000000000000000000000000000000000000\", reason=null, transaction={ \"data\": \"0xd75bbdf300000000000000000000000000000000000000000000000000000000000000072b29265fc125740ae6bbc5035ae7af720b6932f4a3e44ba5ac02955c21ca9a0500000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000\", \"from\": \"0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf\", \"to\": \"0x86b951233E131d2dc0931aeB70ebc9Da17e998f6\" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.17.0)",
+    "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+  },
+  "evidenceV2": "0eb9683e73ba8cab8581e18a6d915677dea6d7358a19541185decd82b5b930a2",
+  "keeperHubCleanSimulation": {
+    "httpStatus": 200,
+    "success": true,
+    "wouldRevert": false
+  },
+  "keeperHubRelease": {
+    "httpStatus": 202,
+    "executionId": "qyn8k10j5mv6529c5cjtu",
+    "status": "completed",
+    "transactionHash": "0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8",
+    "transactionLink": "https://sepolia.basescan.org/tx/0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8",
+    "error": null
+  },
+  "keeperHubStatus": {
+    "executionId": "qyn8k10j5mv6529c5cjtu",
+    "status": "completed",
+    "transactionHash": "0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8",
+    "transactionLink": "https://sepolia.basescan.org/tx/0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8",
+    "sponsored": true,
+    "type": "contract-call"
+  },
+  "providerUsdc": {
+    "before": 2.6,
+    "after": 3.6
+  },
+  "keeperHubSecondAttempt": {
+    "httpStatus": 202,
+    "status": "failed",
+    "error": "Contract call failed: WrongStatus",
+    "executionId": "r72xywgo7x5kn0vr3yvvk"
+  },
+  "providerUsdcFinal": 3.6
+}
