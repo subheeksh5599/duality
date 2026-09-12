@@ -208,3 +208,45 @@ class State:
         elif kind == "disqualify":
             rc, tx = self.ch.send(self.ch.reg.functions.setQualification(self.ch.addr["provider"], 3),
                                   "deployer", "  mutate: revoke provider qualification")
+            self.counters["mutations_disqualified"] += 1
+        else:
+            raise ValueError(f"unknown invalidation class {kind}")
+        return self.event("fact_mutated", corr, jobId=job_id, mutationKind=kind, tx=tx)
+
+    def check(self, job_id: int, corr: str) -> dict:
+        v = self.predicate(job_id)
+        self.counters["checks"] += 1
+        self.counters[f"decision_{v['decision']}"] += 1
+        self.decisions[job_id] = v
+        self.event("release_checked", corr, jobId=job_id, **v)
+        return v
+
+    def release(self, job_id: int, corr: str) -> dict:
+        """Simulate through KeeperHub, then broadcast only if the gate allows it."""
+        verdict = self.predicate(job_id)
+        body = {"contractAddress": self.ch.dep["core"], "network": K.NETWORK,
+                "abi": json.dumps(self.merged_abi), "functionName": "complete",
+                "functionArgs": json.dumps([str(job_id), "0x" + keccak(text="approved").hex(), "0x"])}
+        st, sim = K.kh(self.env, "POST", "/api/execute/contract-call", dict(body, simulate=True),
+                       idem=f"duality-sim-{job_id}-{int(time.time())}")
+        if sim.get("wouldRevert"):
+            self.counters["held"] += 1
+            return self.event("release_held", corr, jobId=job_id, via="keeperhub",
+                              wouldRevert=True, keeperHubReason=str(sim.get("revertReason"))[:240],
+                              reasonCode=verdict["reasonCode"], decision=verdict["decision"])
+        st2, sent = K.kh(self.env, "POST", "/api/execute/contract-call", body,
+                         idem=f"duality-release-{job_id}-{int(time.time())}")
+        exid = sent.get("executionId")
+        link = sent.get("transactionLink")
+        for _ in range(30):
+            if not exid:
+                break
+            _s, status = K.kh(self.env, "GET", f"/api/execute/{exid}/status")
+            if status.get("status") in ("completed", "failed"):
+                link = status.get("transactionLink") or link
+                sent = {**sent, **status}
+                break
+            time.sleep(3)
+        self.counters["released"] += 1
+        return self.event("released", corr, jobId=job_id, via="keeperhub", executionId=exid,
+                          status=sent.get("status"), transactionLink=link)
