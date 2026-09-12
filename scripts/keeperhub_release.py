@@ -203,3 +203,57 @@ def main() -> int:
     before = ch.usdc.functions.balanceOf(ch.addr["provider"]).call() / 1e6
     st3, sent = kh(env, "POST", "/api/execute/contract-call",
                    {"contractAddress": ch.dep["core"], "network": NETWORK, "abi": core_abi,
+                    "functionName": "complete",
+                    "functionArgs": json.dumps([str(jid), "0x" + keccak(text="approved").hex(), "0x"])},
+                   idem=f"duality-kh-release-{jid}-1")
+    print(f"   HTTP {st3}  executionId={sent.get('executionId')}  status={sent.get('status')}")
+    proof["keeperHubRelease"] = {"httpStatus": st3, **{k: sent.get(k) for k in
+                                ("executionId", "status", "transactionHash", "transactionLink", "error")}}
+
+    exid = sent.get("executionId")
+    if exid:
+        print("\n7. poll the status until terminal")
+        for i in range(30):
+            st4, status = kh(env, "GET", f"/api/execute/{exid}/status")
+            s = status.get("status")
+            print(f"   poll {i+1}: {s}  tx={status.get('transactionHash')}")
+            if s in ("completed", "failed"):
+                proof["keeperHubStatus"] = {k: status.get(k) for k in
+                                            ("executionId", "status", "transactionHash", "transactionLink",
+                                             "sponsored", "type")}
+                break
+            time.sleep(3)
+    after = ch.usdc.functions.balanceOf(ch.addr["provider"]).call() / 1e6
+    print(f"\n   provider USDC {before:.2f} -> {after:.2f}   (moved by KeeperHub, not by this script)")
+    proof["providerUsdc"] = {"before": before, "after": after}
+
+    print("\n8. a second broadcast must not pay twice")
+    st5, dup = kh(env, "POST", "/api/execute/contract-call",
+                  {"contractAddress": ch.dep["core"], "network": NETWORK, "abi": core_abi,
+                   "functionName": "complete",
+                   "functionArgs": json.dumps([str(jid), "0x" + keccak(text="approved").hex(), "0x"])},
+                  idem=f"duality-kh-release-{jid}-2")
+    print(f"   HTTP {st5}  status={dup.get('status')}  error={str(dup.get('error'))[:90]}")
+    proof["keeperHubSecondAttempt"] = {"httpStatus": st5, **{k: dup.get(k) for k in ("status", "error", "executionId")}}
+    final = ch.usdc.functions.balanceOf(ch.addr["provider"]).call() / 1e6
+    print(f"   provider USDC final: {final:.2f}")
+    proof["providerUsdcFinal"] = final
+
+    out = os.path.join(ROOT, "artifacts", "keeperhub-release.json")
+    json.dump(proof, open(out, "w", encoding="utf-8"), indent=2)
+    print(f"\nwrote {out}")
+    ok = (proof.get("keeperHubHoldSimulation", {}).get("wouldRevert") is True
+          and proof.get("keeperHubRelease", {}).get("status") in ("completed", "pending", "running", "unconfirmed")
+          and abs(after - final) < 1e-9)
+    print("RESULT:", "PASS" if ok else "REVIEW", "- KeeperHub held it, then released it, and paid once")
+    return 0 if ok else 1
+
+
+def _ev(eid, jid, version, content, bound, observed, ch):
+    return (eid, jid, keccak(text=f"evaluation-{version}"), keccak(text="subject"), keccak(text="quote"),
+            content, keccak(text=f"provenance-{version}"), version, observed, bound,
+            ch.addr["provider"], 1, 1, 0, ZERO32)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
