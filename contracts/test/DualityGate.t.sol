@@ -212,3 +212,42 @@ contract DualityGateTest is Test {
         uint256 paid = usdc.balanceOf(provider);
 
         vm.expectRevert();                    // core refuses: status is no longer Submitted
+        _release(jobId);
+        assertEq(usdc.balanceOf(provider), paid, "provider not paid twice");
+        assertTrue(reg.settled(jobId));
+    }
+
+    function test_unapprovedJob_cannotRelease() public {
+        vm.prank(client);
+        uint256 jobId = core.createJob(provider, evaluator, uint48(block.timestamp + 1 hours),
+                                       "quote", address(hook), 1);
+        vm.prank(provider); core.setBudget(jobId, address(usdc), BUDGET, "");
+        vm.prank(client); core.fund(jobId, address(usdc), BUDGET, "");
+        vm.prank(provider); core.submit(jobId, keccak256("d"), "");
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_NOT_APPROVED()
+        ));
+        _release(jobId);
+    }
+
+    /// @notice The gate must never be able to trap a client's funds. claimRefund
+    ///         is deliberately not hookable, so an invalid approval cannot stop
+    ///         the refund path.
+    function test_gateCannotBlockRefund() public {
+        (uint256 jobId,) = _openJob();
+        uint256 before = usdc.balanceOf(client);
+
+        // make the release impossible forever
+        reg.setQualification(provider, EvidenceRegistry.QualStatus.REVOKED);
+
+        // a Submitted job refunds only after expiredAt + the core's own
+        // EVALUATION_GRACE_PERIOD (1 hour), and that path is not hookable
+        vm.warp(uint256(core.getJob(jobId).expiredAt) + 1 hours + 1);
+
+        vm.prank(client);
+        core.claimRefund(jobId);
+
+        assertEq(usdc.balanceOf(client) - before, BUDGET, "client refunded despite the gate");
+    }
+}
