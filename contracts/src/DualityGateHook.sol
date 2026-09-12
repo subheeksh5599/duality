@@ -39,3 +39,25 @@ contract DualityGateHook is BaseERC8183Hook {
         if (deliverableSeen[deliverable] && deliverableJob[deliverable] != jobId) {
             revert DeliverableReused(deliverable, deliverableJob[deliverable]);
         }
+        deliverableSeen[deliverable] = true;
+        deliverableJob[deliverable] = jobId;
+        emit DeliverableBound(jobId, deliverable);
+    }
+
+    /// @notice complete(uint256,bytes32,bytes) -> abi.encode(caller, reason, optParams)
+    /// @dev THE GATE. Re-reads the predicate at release time and reverts on failure.
+    function _preComplete(uint256 jobId, address, bytes32, bytes memory) internal override {
+        uint64 nowTs = uint64(block.timestamp);
+        bytes32 evidenceId = registry.approvedEvidence(jobId);
+        (bool ok, bytes32 reason) = registry.isReleasable(jobId, nowTs);
+        emit ReleaseChecked(jobId, evidenceId, ok, reason, nowTs);
+        if (!ok) revert ReleaseBlocked(jobId, reason);
+        emit ReleaseAllowed(jobId, evidenceId, nowTs);
+    }
+
+    /// @notice Runs after the core has paid the provider. Records settlement so a
+    ///         second release for the same job is refused by the registry too.
+    function _postComplete(uint256 jobId, address, bytes32, bytes memory) internal override {
+        registry.markSettled(jobId);
+    }
+}
