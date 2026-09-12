@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUALITY control surface</title>
+<style>
+  :root{
+    --bg:#0a0c10; --panel:#11141a; --line:#1e232c; --ink:#e6e9ef; --dim:#8b93a3;
+    --ok:#3fd68c; --hold:#ffb454; --bad:#ff6b6b; --accent:#7aa2ff; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+  header{border-bottom:1px solid var(--line);padding:14px 20px;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;letter-spacing:.14em;text-transform:uppercase}
+  .thesis{color:var(--dim);font-size:12.5px}
+  .thesis b{color:var(--ink);font-weight:600}
+  main{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:0;min-height:calc(100vh - 54px)}
+  .list{border-right:1px solid var(--line);overflow:auto;max-height:calc(100vh - 54px)}
+  .job{padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:center}
+  .job:hover{background:#141821}
+  .job.sel{background:#161b26;box-shadow:inset 3px 0 0 var(--accent)}
+  .job .id{font-family:var(--mono);color:var(--dim);min-width:34px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+  .dot.RELEASE{background:var(--ok)} .dot.HOLD{background:var(--hold)}
+  .dot.SETTLED{background:var(--dim)} .dot.RECONCILIATION_REQUIRED{background:var(--accent)}
+  .panel{padding:20px;overflow:auto;max-height:calc(100vh - 54px)}
+  .row{display:grid;grid-template-columns:160px 1fr;gap:12px;padding:5px 0;border-bottom:1px solid #14181f}
+  .k{color:var(--dim);font-size:12.5px}
+  .v{font-family:var(--mono);font-size:12.5px;word-break:break-all}
+  h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:22px 0 8px;font-weight:600}
+  .verdict{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--panel)}
+  .verdict .code{font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:.02em}
+  .verdict.RELEASE .code{color:var(--ok)} .verdict.HOLD .code{color:var(--hold)}
+  .verdict.SETTLED .code{color:var(--dim)} .verdict.RECONCILIATION_REQUIRED .code{color:var(--accent)}
+  .clauses{margin:10px 0 0;padding:0;list-style:none;font-family:var(--mono);font-size:12px}
+  .clauses li{padding:3px 0;color:var(--dim)}
+  .clauses li b{color:var(--ink);font-weight:500}
+  button{background:#1b2130;color:var(--ink);border:1px solid var(--line);border-radius:6px;
+         padding:8px 12px;font:inherit;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
