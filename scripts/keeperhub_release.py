@@ -110,3 +110,96 @@ class Chain:
         rc = self.w3.eth.wait_for_transaction_receipt(h, timeout=180)
         print(f"  {label:<46} {'OK ' if rc['status'] == 1 else 'FAIL'}  {h.hex()}")
         time.sleep(1.2)
+        return rc, h.hex()
+
+    def transfer(self, to: str, ether: float, label: str):
+        acct = self.addr["deployer"]
+        tx = {"from": acct, "to": to, "value": self.w3.to_wei(ether, "ether"), "gas": 21000,
+              "chainId": self.dep["chainId"], "gasPrice": self.w3.eth.gas_price,
+              "nonce": self.w3.eth.get_transaction_count(acct, "pending")}
+        signed = self.w3.eth.account.sign_transaction(tx, self.keys["deployer"])
+        h = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        rc = self.w3.eth.wait_for_transaction_receipt(h, timeout=180)
+        print(f"  {label:<46} OK   {h.hex()}")
+        time.sleep(1.2)
+        return rc, h.hex()
+
+
+def main() -> int:
+    env = load_env(sys.argv[1] if len(sys.argv) > 1 else None)
+    ch = Chain(env)
+    core_abi = json.dumps(Chain.abi("ERC8183.sol", "ERC8183"))
+    proof: dict = {"network": NETWORK, "keeperHubWallet": KH_WALLET,
+                   "core": ch.dep["core"], "gateHook": ch.dep["gateHook"]}
+
+    print("0. KeeperHub's wallet must be able to pay gas; it had none")
+    if ch.w3.eth.get_balance(KH_WALLET) < Web3.to_wei(0.0005, "ether"):
+        rc, _ = ch.transfer(KH_WALLET, 0.003, "fund KeeperHub wallet with test ETH")
+        proof["fundTx"] = _
+    print(f"   KeeperHub wallet balance: {ch.w3.eth.get_balance(KH_WALLET) / 1e18:.6f} ETH")
+
+    print("\n1. open a job whose EVALUATOR is KeeperHub's wallet")
+    exp = int(time.time()) + 7200
+    rc, _ = ch.send(ch.core.functions.createJob(ch.addr["provider"], ch.addr["evaluator"], exp,
+                    "DUALITY x KeeperHub: time-sensitive quote", ch.dep["gateHook"], 1),
+                    "client", "createJob (evaluator = KeeperHub)")
+    jid = None
+    for log in rc["logs"]:
+        try:
+            jid = int(ch.core.events.JobCreated().process_log(log)["args"]["jobId"])
+        except Exception:  # noqa: BLE001
+            continue
+    print(f"   jobId {jid}, evaluator {KH_WALLET}")
+    proof["jobId"] = jid
+
+    ch.send(ch.core.functions.setBudget(jid, ch.usdc.address, 1_000_000, b""), "provider", "setBudget 1 USDC")
+    ch.send(ch.core.functions.fund(jid, ch.usdc.address, 1_000_000, b""), "client", "fund 1 USDC")
+    ch.send(ch.core.functions.submit(jid, keccak(text=f"quote-kh-{jid}"), b""), "provider", "submit deliverable")
+    ch.send(ch.reg.functions.setQualification(ch.addr["provider"], 1), "deployer", "setQualification(QUALIFIED)")
+
+    print("\n2. evidence v1, approved at evaluation time, 5 second freshness")
+    t1 = int(time.time())
+    ev1 = keccak(ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                [jid, ch.addr["provider"], keccak(text="quote-v1"), 1]))
+    ch.send(ch.reg.functions.commit(_ev(ev1, jid, 1, keccak(text="quote-v1"), 5, t1, ch)),
+            "deployer", "commit evidence v1")
+    ch.send(ch.reg.functions.approve(jid, ev1, keccak(text="evaluation-1")), "deployer", "approve v1")
+    proof["evidenceV1"] = ev1.hex()
+
+    print("\n3. KeeperHub SIMULATES the release while the approval is stale")
+    time.sleep(11)
+    st, sim_hold = kh(env, "POST", "/api/execute/contract-call",
+                      {"contractAddress": ch.dep["core"], "network": NETWORK, "abi": core_abi,
+                       "functionName": "complete",
+                       "functionArgs": json.dumps([str(jid), "0x" + keccak(text="approved").hex(), "0x"]),
+                       "simulate": True}, idem=f"duality-kh-hold-{jid}")
+    print(f"   HTTP {st}  success={sim_hold.get('success')}  wouldRevert={sim_hold.get('wouldRevert')}")
+    print(f"   revertReason: {sim_hold.get('revertReason')}   from: {sim_hold.get('from')}")
+    proof["keeperHubHoldSimulation"] = {"httpStatus": st, "success": sim_hold.get("success"),
+                                        "wouldRevert": sim_hold.get("wouldRevert"),
+                                        "revertReason": sim_hold.get("revertReason"),
+                                        "signer": sim_hold.get("from")}
+
+    print("\n4. reconciliation: a fresh observation, re-approved")
+    t2 = int(time.time())
+    ev2 = keccak(ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                [jid, ch.addr["provider"], keccak(text="quote-v2"), 2]))
+    ch.send(ch.reg.functions.commit(_ev(ev2, jid, 2, keccak(text="quote-v2"), 3600, t2, ch)),
+            "deployer", "commit evidence v2")
+    ch.send(ch.reg.functions.approve(jid, ev2, keccak(text="evaluation-2")), "deployer", "approve v2")
+    proof["evidenceV2"] = ev2.hex()
+
+    print("\n5. KeeperHub SIMULATES again, now the same call is clean")
+    st2, sim_ok = kh(env, "POST", "/api/execute/contract-call",
+                     {"contractAddress": ch.dep["core"], "network": NETWORK, "abi": core_abi,
+                      "functionName": "complete",
+                      "functionArgs": json.dumps([str(jid), "0x" + keccak(text="approved").hex(), "0x"]),
+                      "simulate": True}, idem=f"duality-kh-ok-{jid}")
+    print(f"   HTTP {st2}  success={sim_ok.get('success')}  wouldRevert={sim_ok.get('wouldRevert')}")
+    proof["keeperHubCleanSimulation"] = {"httpStatus": st2, "success": sim_ok.get("success"),
+                                         "wouldRevert": sim_ok.get("wouldRevert")}
+
+    print("\n6. KeeperHub BROADCASTS the release")
+    before = ch.usdc.functions.balanceOf(ch.addr["provider"]).call() / 1e6
+    st3, sent = kh(env, "POST", "/api/execute/contract-call",
+                   {"contractAddress": ch.dep["core"], "network": NETWORK, "abi": core_abi,
