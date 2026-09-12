@@ -98,3 +98,65 @@ contract DualityGateTest is Test {
         evidenceId = _commit(jobId, 1, EvidenceRegistry.QualStatus.QUALIFIED, FRESH);
         reg.approve(jobId, evidenceId, keccak256("evaluation-1"));
     }
+
+    function _release(uint256 jobId) internal {
+        vm.prank(evaluator);
+        core.complete(jobId, keccak256("approved"), "");
+    }
+
+    // ------------------------------------------------------- the happy path
+
+    function test_validRelease_succeeds() public {
+        (uint256 jobId,) = _openJob();
+        uint256 before = usdc.balanceOf(provider);
+
+        (bool ok, bytes32 reason) = reg.isReleasable(jobId, uint64(block.timestamp));
+        assertTrue(ok, "predicate should pass");
+        assertEq(reason, reg.OK());
+
+        _release(jobId);
+
+        assertEq(usdc.balanceOf(provider) - before, BUDGET, "provider paid in full");
+        assertEq(uint8(core.getJob(jobId).status), uint8(ERC8183.JobStatus.Completed));
+    }
+
+    function test_boundaryIsInclusive() public {
+        (uint256 jobId,) = _openJob();
+        uint64 observedAt = reg.getEvidence(reg.approvedEvidence(jobId)).observedAt;
+
+        vm.warp(observedAt + FRESH);          // exactly at expiry: still valid
+        (bool okAtBoundary,) = reg.isReleasable(jobId, uint64(block.timestamp));
+        assertTrue(okAtBoundary, "boundary inclusive");
+        _release(jobId);
+    }
+
+    // ------------------------------------------------- the three invalidations
+
+    function test_stale_blocksRelease() public {
+        (uint256 jobId,) = _openJob();
+        uint256 before = usdc.balanceOf(provider);
+        uint64 observedAt = reg.getEvidence(reg.approvedEvidence(jobId)).observedAt;
+
+        vm.warp(observedAt + FRESH + 1);      // one second past expiry
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_STALE()
+        ));
+        _release(jobId);
+
+        assertEq(usdc.balanceOf(provider), before, "no money moved");
+        assertEq(uint8(core.getJob(jobId).status), uint8(ERC8183.JobStatus.Submitted));
+    }
+
+    function test_superseded_blocksRelease() public {
+        (uint256 jobId,) = _openJob();
+        uint256 before = usdc.balanceOf(provider);
+
+        // a newer observation of the same subject lands before release
+        _commit(jobId, 2, EvidenceRegistry.QualStatus.QUALIFIED, FRESH);
+        assertEq(reg.currentVersion(jobId, SUBJECT), 2);
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_SUPERSEDED()
+        ));
+        _release(jobId);
