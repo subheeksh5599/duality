@@ -129,3 +129,54 @@ async function render() {
     <div class="row"><span class="k">version</span><span class="v">${e.version}</span></div>
     <div class="row"><span class="k">observed at</span><span class="v">${e.observedAt}</span></div>
     <div class="row"><span class="k">freshness bound</span><span class="v">${e.freshnessBound}s</span></div>
+    <div class="row"><span class="k">expires at</span><span class="v">${e.expiresAt} <span class="flag ${e.expired ? "no" : "ok"}">${e.expired ? "expired" : "fresh"}</span></span></div>
+    <div class="row"><span class="k">qualified at obs.</span><span class="v">${e.qualificationAtObservation} </span></div>
+    <div class="row"><span class="k">qualified now</span><span class="v">${e.providerQualificationNow}</span></div>` : `<p class="note">no approval bound to this job</p>`}
+
+    <h2>Actions</h2>
+    <div class="acts">
+      <button class="go" onclick="act('release')">Check &amp; release via KeeperHub</button>
+      <button onclick="act('reconcile')">Reconcile</button>
+    </div>
+    <h2>Mutate one fact</h2>
+    <div class="acts">
+      <button class="mutate" onclick="act('invalidate-stale')">Expire the evidence</button>
+      <button class="mutate" onclick="act('invalidate')">Supersede with a newer observation</button>
+      <button class="mutate" onclick="act('invalidate-disqualify')">Revoke the provider</button>
+    </div>
+    <div class="note">Each button changes real backend state. The approval stays in history; the release permission changes.</div>
+
+    <h2>Audit</h2>
+    <div class="log" id="log">loading…</div>`;
+  const { body: ev } = await api("GET", "/events");
+  const mine = (ev.events || []).filter(x => x.jobId === selected);
+  $("#log").innerHTML = mine.slice(-14).map(x => `<div><span class="t">${x.id}</span><span>${x.kind}</span>
+     <span style="color:var(--dim);margin-left:auto">${x.reasonCode || x.status || x.transactionLink || ""}</span></div>`).join("") || "<div class='t'>no events yet</div>";
+}
+
+async function act(action) {
+  const btns = [...document.querySelectorAll("button")];
+  btns.forEach(b => b.disabled = true);
+  try {
+    const { status, body } = await api("POST", `/jobs/${selected}/${action}`);
+    console.log(action, status, body);
+    if (body.transactionLink) window.open(body.transactionLink, "_blank");
+  } finally {
+    btns.forEach(b => b.disabled = false);
+    await loadJobs(); await render();
+  }
+}
+
+(async () => {
+  try {
+    const { body: h } = await api("GET", "/health");
+    $("#chain").textContent = `chain ${h.chainId} · ${short(h.core, 12)}`;
+    $("#chain").className = "flag ok";
+  } catch (e) { $("#chain").textContent = "service unreachable"; }
+  await loadJobs();
+  const first = document.querySelector(".job");
+  if (first) { selected = Number(first.querySelector(".id").textContent.replace("#", "")); await render(); }
+})();
+</script>
+</body>
+</html>
