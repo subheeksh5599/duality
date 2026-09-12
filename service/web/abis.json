@@ -1,0 +1,357 @@
+{
+ "core": [
+  {
+   "type": "constructor",
+   "inputs": [],
+   "stateMutability": "nonpayable"
+  },
+  {
+   "type": "function",
+   "name": "getJob",
+   "inputs": [
+    {
+     "name": "jobId",
+     "type": "uint256",
+     "internalType": "uint256"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "",
+     "type": "tuple",
+     "internalType": "struct ERC8183.Job",
+     "components": [
+      {
+       "name": "client",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "status",
+       "type": "uint8",
+       "internalType": "enum ERC8183.JobStatus"
+      },
+      {
+       "name": "provider",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "expiredAt",
+       "type": "uint48",
+       "internalType": "uint48"
+      },
+      {
+       "name": "evaluator",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "submittedAt",
+       "type": "uint48",
+       "internalType": "uint48"
+      },
+      {
+       "name": "budget",
+       "type": "uint256",
+       "internalType": "uint256"
+      },
+      {
+       "name": "hook",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "paymentToken",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "providerAgentId",
+       "type": "uint256",
+       "internalType": "uint256"
+      },
+      {
+       "name": "description",
+       "type": "string",
+       "internalType": "string"
+      },
+      {
+       "name": "settledAmount",
+       "type": "uint256",
+       "internalType": "uint256"
+      },
+      {
+       "name": "payoutReceiver",
+       "type": "address",
+       "internalType": "address"
+      }
+     ]
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "jobCounter",
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "",
+     "type": "uint256",
+     "internalType": "uint256"
+    }
+   ],
+   "stateMutability": "view"
+  }
+ ],
+ "registry": [
+  {
+   "type": "constructor",
+   "inputs": [
+    {
+     "name": "committer_",
+     "type": "address",
+     "internalType": "address"
+    },
+    {
+     "name": "qualifier_",
+     "type": "address",
+     "internalType": "address"
+    },
+    {
+     "name": "maxSkew_",
+     "type": "uint64",
+     "internalType": "uint64"
+    }
+   ],
+   "stateMutability": "nonpayable"
+  },
+  {
+   "type": "function",
+   "name": "approval",
+   "inputs": [
+    {
+     "name": "",
+     "type": "uint256",
+     "internalType": "uint256"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "evidenceId",
+     "type": "bytes32",
+     "internalType": "bytes32"
+    },
+    {
+     "name": "evaluationId",
+     "type": "bytes32",
+     "internalType": "bytes32"
+    },
+    {
+     "name": "exists",
+     "type": "bool",
+     "internalType": "bool"
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "currentVersion",
+   "inputs": [
+    {
+     "name": "",
+     "type": "uint256",
+     "internalType": "uint256"
+    },
+    {
+     "name": "",
+     "type": "bytes32",
+     "internalType": "bytes32"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "",
+     "type": "uint64",
+     "internalType": "uint64"
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "getEvidence",
+   "inputs": [
+    {
+     "name": "evidenceId",
+     "type": "bytes32",
+     "internalType": "bytes32"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "",
+     "type": "tuple",
+     "internalType": "struct EvidenceRegistry.Evidence",
+     "components": [
+      {
+       "name": "evidenceId",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "jobId",
+       "type": "uint256",
+       "internalType": "uint256"
+      },
+      {
+       "name": "evaluationId",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "subject",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "evidenceType",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "contentHash",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "provenanceHash",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      },
+      {
+       "name": "version",
+       "type": "uint64",
+       "internalType": "uint64"
+      },
+      {
+       "name": "observedAt",
+       "type": "uint64",
+       "internalType": "uint64"
+      },
+      {
+       "name": "freshnessBound",
+       "type": "uint64",
+       "internalType": "uint64"
+      },
+      {
+       "name": "provider",
+       "type": "address",
+       "internalType": "address"
+      },
+      {
+       "name": "qualificationAtObservation",
+       "type": "uint8",
+       "internalType": "enum EvidenceRegistry.QualStatus"
+      },
+      {
+       "name": "qualificationRevision",
+       "type": "uint64",
+       "internalType": "uint64"
+      },
+      {
+       "name": "status",
+       "type": "uint8",
+       "internalType": "enum EvidenceRegistry.EvidenceStatus"
+      },
+      {
+       "name": "invalidationReason",
+       "type": "bytes32",
+       "internalType": "bytes32"
+      }
+     ]
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "isReleasable",
+   "inputs": [
+    {
+     "name": "jobId",
+     "type": "uint256",
+     "internalType": "uint256"
+    },
+    {
+     "name": "nowTs",
+     "type": "uint64",
+     "internalType": "uint64"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "ok",
+     "type": "bool",
+     "internalType": "bool"
+    },
+    {
+     "name": "reason",
+     "type": "bytes32",
+     "internalType": "bytes32"
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "qualification",
+   "inputs": [
+    {
+     "name": "",
+     "type": "address",
+     "internalType": "address"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "status",
+     "type": "uint8",
+     "internalType": "enum EvidenceRegistry.QualStatus"
+    },
+    {
+     "name": "revision",
+     "type": "uint64",
+     "internalType": "uint64"
+    },
+    {
+     "name": "updatedAt",
+     "type": "uint64",
+     "internalType": "uint64"
+    }
+   ],
+   "stateMutability": "view"
+  },
+  {
+   "type": "function",
+   "name": "settled",
+   "inputs": [
+    {
+     "name": "",
+     "type": "uint256",
+     "internalType": "uint256"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "",
+     "type": "bool",
+     "internalType": "bool"
+    }
+   ],
+   "stateMutability": "view"
+  }
+ ]
+}

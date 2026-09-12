@@ -97,6 +97,14 @@ number and state they show comes from the chain. Neither has a build step, a
 bundler or mock data, and the web assets are served through an allowlist so a
 crafted path cannot leave the directory.
 
+The same files also deploy as a static site, where no process answers those
+endpoints. The dashboard probes `/health` once on load: a JSON answer means a
+service is present and every action works; anything else means a static build, so
+reads fall through to `service/web/chain.js`, which performs the same six
+`eth_call`s from the browser. That build holds no key, so the seven actions that
+sign are locked and the page says why; only `check` remains, and it is a real
+re-read of the predicate against the current block.
+
 ## Audit log
 
 `artifacts/events.jsonl`, one JSON object per line, never rewritten. Each record

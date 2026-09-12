@@ -316,6 +316,8 @@ pre.code .hl{color:var(--signal)}
 .act.primary{border-color:var(--fg)}
 .act.danger:hover{border-color:var(--signal);color:var(--signal)}
 .act.expected-block{border-style:dashed;border-color:var(--signal);color:var(--signal)}
+/* on a static build release is locked, and a locked control must not look armed */
+.act.expected-block[disabled]{border-style:solid;border-color:var(--rule-on-dark);color:var(--fg)}
 .act[disabled]{opacity:.4;cursor:not-allowed}
 
 .log{padding:0}
@@ -330,6 +332,10 @@ pre.code .hl{color:var(--signal)}
 .logrow a{border-bottom:1px solid var(--rule-on-dark-faint)}
 .logrow a:hover{border-color:var(--fg)}
 
+/* read-only notice on a static build */
+.ro{margin:18px clamp(18px,2.4vw,28px) 0;padding:14px 16px;border:1px solid var(--rule-on-dark);
+  color:var(--dim);font-size:13px;max-width:78ch;line-height:1.6}
+.ro .mono{color:var(--fg)}
 .empty{padding:34px clamp(18px,2.4vw,28px);color:var(--dim);font-size:13px}
 .skel{padding:12px clamp(14px,2.2vw,22px);border-bottom:1px solid var(--rule-on-dark-faint)}
 .skel i{display:block;height:9px;background:var(--ink-3);animation:pulse 1.4s ease-in-out infinite}

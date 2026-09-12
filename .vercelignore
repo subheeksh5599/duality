@@ -1,0 +1,13 @@
+# only service/web ships; everything else is build context this deploy does not need
+.git
+.venv
+contracts
+scripts
+docs
+artifacts
+__pycache__
+*.py
+*.md
+.env
+.env.*
+.vercel

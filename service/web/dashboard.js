@@ -7,6 +7,7 @@ const ES = ['current', 'stale', 'superseded', 'disqualified', 'disputed', 'unrec
 const DEC = { RELEASE: 'release', HOLD: 'hold', RECONCILIATION_REQUIRED: 'recon', SETTLED: 'settled' };
 
 let jobs = [], selected = null, busy = false, clockTimer = null, listTimer = null;
+let MODE = null;   // 'local' when a service answers, 'chain' when this is a static build
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -26,7 +27,38 @@ function fail(msg) {
 }
 function clearFail() { $('err').hidden = true; }
 
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('failed to load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+/* One build, two deployments. If a service answers with JSON, use it and the
+   actions work. Otherwise this is a static build and the chain client answers
+   instead. The content-type check matters: a static host can rewrite an unknown
+   path to the HTML page with a 200, which would otherwise look like a service. */
+async function ensureMode() {
+  if (MODE) return MODE;
+  try {
+    const r = await fetch('/health', { method: 'GET' });
+    if (r.ok && (r.headers.get('content-type') || '').indexOf('application/json') !== -1) {
+      MODE = 'local';
+      return MODE;
+    }
+  } catch (e) { /* no service; fall through to chain reads */ }
+  await loadScript('vendor/ethers.umd.min.js');
+  await loadScript('chain.js');
+  await window.DualityChain.boot();
+  MODE = 'chain';
+  return MODE;
+}
+
 async function api(path, method) {
+  if (await ensureMode() === 'chain') return window.DualityChain.api(path, method || 'GET');
   const r = await fetch(path, { method: method || 'GET' });
   const body = await r.json().catch(() => ({ error: 'unreadable response' }));
   if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
@@ -201,14 +233,40 @@ function renderEvents(list) {
 }
 
 /* ------------------------------------------------------------------ actions */
+function applyMode() {
+  if (MODE !== 'chain') return;
+  const chip = $('chip-mode');
+  if (chip) { chip.textContent = 'read-only'; chip.hidden = false; }
+  const note = $('ro-note');
+  if (note) note.hidden = false;
+  const head = $('log-label');
+  if (head) head.textContent = 'audit log, all jobs, recorded, then this session';
+  const barSub = $('bar-sub');
+  if (barSub) barSub.textContent = 'read-only viewer';
+  // a static build cannot sign, so it must not offer the actions that sign
+  document.querySelectorAll('.act').forEach((b) => {
+    if (b.dataset.act === 'check') return;
+    b.disabled = true;
+    b.title = 'needs the committer role key, which a static build does not hold. ' +
+              'The repository covers running these against the service.';
+  });
+}
+
 function setBusy(on, label) {
   busy = on;
-  document.querySelectorAll('.act').forEach((b) => { b.disabled = on; });
+  document.querySelectorAll('.act').forEach((b) => {
+    const locked = MODE === 'chain' && b.dataset.act !== 'check';
+    b.disabled = on || locked;
+  });
   if (on) $('chip-health').innerHTML = '<span class="dotlive"></span>' + (label || 'working');
 }
 
 async function act(name) {
   if (busy || !selected) return;
+  if (MODE === 'chain' && name !== 'check') {
+    fail(name + ' needs the committer role key. This deployment reads the chain only.');
+    return;
+  }
   setBusy(true, name);
   clearFail();
   try {
@@ -246,10 +304,14 @@ document.querySelectorAll('.act').forEach((b) => {
 });
 
 (async function boot() {
+  await ensureMode();
+  applyMode();
   await health();
   await refreshList();
   if (jobs.length) await select(jobs[jobs.length - 1].jobId);
   else renderJob({ jobId: 0, status: 'none', settled: false, budget: '0', decision: { decision: 'HOLD', explanation: 'no job selected' } });
   await events();
-  listTimer = setInterval(async () => { await Promise.all([health(), events()]); await refreshList(); }, 30000);
+  // a static build reads the chain, so its refresh is gentler than the service's
+  const refreshMs = MODE === 'chain' ? 120000 : 30000;
+  listTimer = setInterval(async () => { await Promise.all([health(), events()]); await refreshList(); }, refreshMs);
 })();

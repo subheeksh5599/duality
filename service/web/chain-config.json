@@ -1,0 +1,15 @@
+{
+ "chainId": 84532,
+ "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+ "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
+ "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
+ "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+ "windowSize": 8,
+ "explorer": "https://sepolia.basescan.org",
+ "rpcs": [
+  "https://sepolia.base.org",
+  "https://base-sepolia-rpc.publicnode.com",
+  "https://base-sepolia.drpc.org",
+  "https://84532.rpc.thirdweb.com"
+ ]
+}

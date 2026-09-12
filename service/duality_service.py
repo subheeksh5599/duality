@@ -41,12 +41,19 @@ EVENTS = os.path.join(ROOT, "artifacts", "events.jsonl")
 # a crafted request cannot walk out of this directory.
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 STATIC = {
-    "/": ("landing.html", "text/html; charset=utf-8"),
-    "/index.html": ("landing.html", "text/html; charset=utf-8"),
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/index.html": ("index.html", "text/html; charset=utf-8"),
     "/dashboard": ("dashboard.html", "text/html; charset=utf-8"),
     "/dashboard.html": ("dashboard.html", "text/html; charset=utf-8"),
     "/duality.css": ("duality.css", "text/css; charset=utf-8"),
     "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
+    # the static build loads these only when no service answers, so the local
+    # page does not pull a 500 KB library it will not use
+    "/chain.js": ("chain.js", "text/javascript; charset=utf-8"),
+    "/abis.json": ("abis.json", "application/json"),
+    "/chain-config.json": ("chain-config.json", "application/json"),
+    "/audit-log.json": ("audit-log.json", "application/json"),
+    "/vendor/ethers.umd.min.js": ("vendor/ethers.umd.min.js", "text/javascript; charset=utf-8"),
 }
 FONTS = {
     "Geist-Regular.woff2", "Geist-Medium.woff2", "Geist-SemiBold.woff2",

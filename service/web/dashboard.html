@@ -10,15 +10,16 @@
 
 <header class="bar">
   <a class="mark" href="/"><i aria-hidden="true"></i><span class="wordmark">DUALITY</span></a>
-  <span class="mono dim" style="font-size:11.5px">control surface</span>
+  <span class="mono dim" style="font-size:11.5px" id="bar-sub">control surface</span>
   <span class="spacer"></span>
   <span class="chip" id="chip-chain">chain</span>
   <span class="chip" id="chip-core">core</span>
+  <span class="chip" id="chip-mode" hidden></span>
   <span class="chip" id="chip-health"><span class="dotlive"></span>reading</span>
 </header>
 
 <div class="counters" id="counters">
-  <div><div class="v">&middot;</div><div class="k">held</div></div>
+  <div><div class="v">&middot;</div><div class="k" title="release attempts the gate refused">refused</div></div>
   <div><div class="v">&middot;</div><div class="k">released</div></div>
   <div><div class="v">&middot;</div><div class="k">reconciled</div></div>
   <div><div class="v">&middot;</div><div class="k">observations</div></div>
@@ -59,6 +60,13 @@
       </div>
     </div>
 
+    <p class="ro" id="ro-note" hidden>
+      This deployment reads the gate straight from Base Sepolia in the browser, so no key
+      is held here. <span class="mono">check</span> re-reads the predicate live. The other
+      actions need the committer role key and run against the service, which is covered in
+      the repository. The audit log below is the recorded trail.
+    </p>
+
     <div class="actions" id="actions">
       <button class="act" data-act="observe">observe</button>
       <button class="act" data-act="approve">approve</button>
@@ -72,7 +80,7 @@
 
     <div class="log">
       <header style="padding:14px clamp(18px,2.4vw,28px) 12px;border-bottom:1px solid var(--rule-on-dark-faint);display:flex;justify-content:space-between">
-        <span class="mono dim" style="font-size:11.5px">audit log</span>
+        <span class="mono dim" style="font-size:11.5px" id="log-label">audit log</span>
         <span class="mono dim" style="font-size:11.5px">newest first</span>
       </header>
       <div class="loghead"><span>time</span><span>event</span><span>detail</span><span>correlation</span></div>

@@ -296,6 +296,7 @@ One gap found while building this is filed upstream as **[KeeperHub#2430](https:
 | KeeperHub executes the release, with its own simulation reporting the refusal | real, execution `qyn8k10j5mv6529c5cjtu` |
 | evaluator service with nine endpoints | real, `service/duality_service.py` |
 | landing page and control surface, reading only from those endpoints | real, `service/web/` |
+| a public deployment, reading the chain from the browser | real, https://duality-lilac.vercel.app |
 | clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
 | a live ACP job | **pending**: the jobs are ERC-8183, the standard whose escrow model ACP implements |
 | source verification on Basescan | **pending** |
@@ -333,7 +334,7 @@ and have no build step, no bundler and no mock data.
 
 | route | file | what it is |
 |---|---|---|
-| `/` | `service/web/landing.html` | the landing page |
+| `/` | `service/web/index.html` | the landing page |
 | `/dashboard` | `service/web/dashboard.html` | the control surface: select a job, read the approval in the left half and the live predicate in the right half, then act |
 | `/duality.css` | `service/web/duality.css` | the design system both pages share, including the self-hosted Geist faces |
 
@@ -341,6 +342,26 @@ The dashboard's counters are folded from `artifacts/events.jsonl` rather than fr
 process memory, so they survive a restart and agree with the audit log. Web assets
 are served through an allowlist rather than a path join, so a crafted path cannot
 leave the directory.
+
+### Two deployment modes, one build
+
+The same files serve both. On load the dashboard asks for `/health`; if a service
+answers with JSON it uses it, and if not it treats itself as a static build and
+reads the contracts from the browser through `service/web/chain.js`.
+
+| | served by | can it act |
+|---|---|---|
+| local, `service/duality_service.py` | the service | yes, all eight actions |
+| static, `https://duality-lilac.vercel.app` | Vercel | `check` only |
+
+The static build holds no key, so it cannot sign. It says so on the page rather
+than offering buttons that fail, and the other seven actions are locked. `check`
+still re-reads the predicate live, which is the operation the product is about.
+Reads go through `ethers.FallbackProvider` across four public endpoints with a
+retry, because a public RPC throttled mid-burst returns a failure that looks
+exactly like a contract revert: both are `CALL_EXCEPTION`, and the throttled one
+simply carries no revert data. The client distinguishes them and says which
+happened instead of blaming the contract.
 
 ## 13. Run locally
 
@@ -409,10 +430,15 @@ contracts/
   script/Deploy.s.sol             deploys and wires the stack
 service/
   duality_service.py              nine endpoints over the deployed contracts
-  web/landing.html                the public page, served at /
+  web/index.html                  the public page, served at /
   web/dashboard.html              the control surface, served at /dashboard
   web/duality.css                 the design system both pages share
-  web/dashboard.js                reads only from the service endpoints
+  web/dashboard.js                one build, two modes: service or chain
+  web/chain.js                    browser reads, for the static deployment
+  web/abis.json                   the six functions the client calls
+  web/chain-config.json           addresses, chain id, RPC endpoints
+  web/audit-log.json              the recorded trail, for the static build
+  web/vendor/ethers.umd.min.js    vendored, so the page needs no CDN
   web/fonts/                      Geist and Geist Mono, self-hosted, OFL
 scripts/
   prove_invalidation_classes.py   all four classes, live
