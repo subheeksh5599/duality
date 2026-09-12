@@ -187,14 +187,13 @@ class State:
     def invalidate(self, job_id: int, kind: str, corr: str) -> dict:
         """The mutation control. Each class changes real state, and nothing else."""
         if kind == "stale":
-            # staleness is a property of time, not a state change we can write. The
-            # honest way to force it is to observe a one second window, approve it,
-            # and let it lapse, so the approved evidence is the current version and
-            # clause 5 is what fails.
-            self.observe(job_id, 1, corr)
-            self.approve(job_id, corr)
-            time.sleep(2)
-            tx = "0x" + "0" * 64
+            ver = self._next_version(job_id)
+            content = keccak(text=f"stale-{job_id}-{time.time()}")
+            eid = keccak(self.ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                        [job_id, self.ch.addr["provider"], content, ver]))
+            rc, tx = self.ch.send(self.ch.reg.functions.commit(K._ev(
+                eid, job_id, ver, content, 1, int(time.time()) - 5, self.ch)),
+                "deployer", "  mutate: freshness already lapsed")
             self.counters["mutations_stale"] += 1
         elif kind == "supersede":
             ver = self._next_version(job_id)
@@ -211,7 +210,7 @@ class State:
             self.counters["mutations_disqualified"] += 1
         else:
             raise ValueError(f"unknown invalidation class {kind}")
-        return self.event("fact_mutated", corr, jobId=job_id, kind=kind, tx=tx)
+        return self.event("fact_mutated", corr, jobId=job_id, mutationKind=kind, tx=tx)
 
     def check(self, job_id: int, corr: str) -> dict:
         v = self.predicate(job_id)
