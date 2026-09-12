@@ -85,3 +85,47 @@ async function loadJobs() {
       <span class="v" style="margin-left:auto;color:var(--dim)">${d.reasonCode === "OK" ? "" : (d.reasonCode || "")}</span>`;
     el.onclick = () => { selected = j.jobId; render(); };
     $("#jobs").appendChild(el);
+  }
+}
+
+function clauseList(d) {
+  const pass = d.reasonCode === "OK";
+  return `<ul class="clauses">
+    <li><b>2</b> evidence belongs to this job ${pass ? "✓" : "?"}</li>
+    <li><b>3</b> approval bound to this evidence id</li>
+    <li><b>4</b> still the current version ${d.reasonCode === "E_SUPERSEDED" ? "✗" : ""}</li>
+    <li><b>5</b> inside the freshness window ${d.reasonCode === "E_STALE" ? "✗" : ""}</li>
+    <li><b>6</b> qualified when the reading was taken ${d.reasonCode === "E_QUAL_OBSERVATION" ? "✗" : ""}</li>
+    <li><b>7</b> qualified now ${d.reasonCode === "E_DISQUALIFIED" ? "✗" : ""}</li>
+    <li><b>10</b> not already settled ${d.decision === "SETTLED" ? "✗" : ""}</li>
+  </ul>`;
+}
+
+async function render() {
+  if (selected === null) return;
+  const { body: j } = await api("GET", "/jobs/" + selected);
+  const d = j.decision || {};
+  const e = j.evidence || {};
+  $("#panel").innerHTML = `
+    <h2>Job #${j.jobId}</h2>
+    <div class="row"><span class="k">status</span><span class="v">${j.status}</span></div>
+    <div class="row"><span class="k">client</span><span class="v">${j.client}</span></div>
+    <div class="row"><span class="k">provider</span><span class="v">${j.provider}</span></div>
+    <div class="row"><span class="k">evaluator</span><span class="v">${j.evaluator}</span></div>
+    <div class="row"><span class="k">gate hook</span><span class="v">${j.hook}</span></div>
+    <div class="row"><span class="k">settled</span><span class="v">${j.settled} <span class="flag ${j.settled ? "no" : "ok"}">clause 10</span></span></div>
+
+    <h2>Release gate</h2>
+    <div class="verdict ${d.decision}">
+      <div class="code">${d.decision || "?"}</div>
+      <div class="note">${d.explanation || ""} &nbsp; reason code <span class="v">${d.reasonCode}</span></div>
+      ${clauseList(d)}
+      <div class="note">checked at ${d.checkedAt} against block timestamp ${d.blockTimestamp} (skew ${Math.abs((d.checkedAt||0)-(d.blockTimestamp||0))}s)</div>
+    </div>
+
+    <h2>Evidence</h2>
+    ${e.evidenceId ? `
+    <div class="row"><span class="k">evidence id</span><span class="v">${short(e.evidenceId, 42)}</span></div>
+    <div class="row"><span class="k">version</span><span class="v">${e.version}</span></div>
+    <div class="row"><span class="k">observed at</span><span class="v">${e.observedAt}</span></div>
+    <div class="row"><span class="k">freshness bound</span><span class="v">${e.freshnessBound}s</span></div>
