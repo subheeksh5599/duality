@@ -43,3 +43,19 @@ contract Deploy is Script {
         core.setEvaluatorFee(0);
 
         vm.stopBroadcast();
+
+        console.log("CHAIN_ID", block.chainid);
+        console.log("USDC", usdc);
+        console.log("ERC8183_IMPL", address(impl));
+        console.log("ERC8183_CORE", address(core));
+        console.log("EVIDENCE_REGISTRY", address(reg));
+        console.log("DUALITY_GATE_HOOK", address(hook));
+        console.log("ADMIN", admin);
+        console.log("COMMITTER", committer);
+        console.log("QUALIFIER", qualifier);
+
+        // prove the wiring took, in the same run
+        require(core.whitelistedHooks(address(hook)), "hook not whitelisted");
+        require(reg.gateHook() == address(hook), "gate hook not set on registry");
+    }
+}
