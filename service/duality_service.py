@@ -281,7 +281,7 @@ class State:
         rec = self.observe(job_id, 3600, corr)
         ver = rec["version"]
         self.approve(job_id, corr)
-        after = self.predicate(job_id)
+        after = self._settled_read(job_id)
         rec = self.event("reconciled", corr, jobId=job_id, before=before["reasonCode"],
                          after=after["reasonCode"], replacementVersion=ver, ok=after["ok"])
         self.reconciliations[job_id] = {"before": before, "after": after, "event": rec["id"]}
