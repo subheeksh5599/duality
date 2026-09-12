@@ -107,7 +107,7 @@
           <span class="mono dim" style="font-size:12px">Identity and binding</span>
           <span class="mono dim" style="font-size:12px">what the approval points at</span>
         </header>
-        <div class="clause"><span class="n">01</span><span class="what">The job is approved and releasable</span><span class="why">Enforced by the core: <code>complete()</code> is evaluator-only and the job must be Submitted.</span><span class="code">core</span></div>
+        <div class="clause"><span class="n">01</span><span class="what">The job is approved and releasable</span><span class="why">Enforced by the core: <code>complete()</code> is evaluator-only and the job must be Submitted.</span><span class="code aux">core</span></div>
         <div class="clause"><span class="n">02</span><span class="what">The evidence belongs to this job</span><span class="why">A record from another job cannot be spent here.</span><span class="code">E_SUBJECT</span></div>
         <div class="clause"><span class="n">03</span><span class="what">The approval binds that exact evidence</span><span class="why">The approval stores an evidenceId, so it cannot drift to newer evidence.</span><span class="code">E_NOT_APPROVED</span></div>
       </div>
@@ -135,8 +135,8 @@
           <span class="mono dim" style="font-size:12px">Boundaries</span>
           <span class="mono dim" style="font-size:12px">the edges, including the ones not closed</span>
         </header>
-        <div class="clause"><span class="n">08</span><span class="what">The provenance envelope matches</span><span class="why">Declared in the specification, <b>not enforced</b>. The hash is stored so the envelope stays auditable, but no branch reads it. Recorded in <code>docs/LIMITATIONS.md</code>.</span><span class="code">open</span></div>
-        <div class="clause"><span class="n">09</span><span class="what">Job conditions hold</span><span class="why">Delegated to an external oracle. When none is configured, vacuously true.</span><span class="code">oracle</span></div>
+        <div class="clause"><span class="n">08</span><span class="what">The provenance envelope matches</span><span class="why">Declared in the specification, <b>not enforced</b>. The hash is stored so the envelope stays auditable, but no branch reads it. Recorded in <code>docs/LIMITATIONS.md</code>.</span><span class="code aux">open</span></div>
+        <div class="clause"><span class="n">09</span><span class="what">Job conditions hold</span><span class="why">Delegated to an external oracle. When none is configured, vacuously true.</span><span class="code aux">oracle</span></div>
         <div class="clause"><span class="n">10</span><span class="what">The job has not already settled</span><span class="why">The second release attempt on a settled job is refused.</span><span class="code">E_ALREADY_SETTLED</span></div>
       </div>
     </div>
@@ -304,6 +304,7 @@
           <li><span class="mono dim">ok</span><span>Four invalidation classes proven live, each with the release refused and the balance unmoved.</span></li>
           <li><span class="mono dim">ok</span><span>KeeperHub simulates, broadcasts and is read back, with the execution id recorded.</span></li>
           <li><span class="mono dim">ok</span><span>The service drives its own release over HTTP, and the reconciliation of a held job ends in a completed execution.</span></li>
+          <li><span class="mono dim">ok</span><span>A refusal cannot trap a client's money. The core documents <code>claimRefund</code> as not hookable, and a test asserts the gate cannot block it.</span></li>
         </ul>
       </section>
       <section>
