@@ -163,3 +163,50 @@ contract EvidenceRegistry {
 
     /// @notice THE PREDICATE. Clauses 2,3,4,5,6,7,8,10 of the specification.
     ///         Clause 1 (ACP approval) is enforced by ERC-8183 itself: complete()
+    ///         is evaluator-only and the job must be Submitted.
+    ///         Clause 9 (job conditions) is delegated to an external oracle; when
+    ///         none is configured it is documented as vacuously true.
+    function isReleasable(uint256 jobId, uint64 nowTs) public view returns (bool ok, bytes32 reason) {
+        Approval memory a = approval[jobId];
+        if (!a.exists) return (false, E_NOT_APPROVED);
+        if (settled[jobId]) return (false, E_ALREADY_SETTLED);
+
+        Evidence storage e = _evidence[a.evidenceId];
+        if (e.evidenceId == bytes32(0)) return (false, E_NOT_APPROVED);
+        if (e.jobId != jobId) return (false, E_SUBJECT);
+
+        if (e.status != EvidenceStatus.CURRENT) return (false, _reasonForStatus(e));
+
+        // clause 4: the approved evidence must still be the current version
+        if (e.version != currentVersion[e.jobId][e.subject]) return (false, E_SUPERSEDED);
+
+        // clause 5: freshness, inclusive at the boundary
+        if (nowTs > uint64(e.observedAt) + uint64(e.freshnessBound)) return (false, E_STALE);
+
+        // clause 6: qualification held at observation
+        if (e.qualificationAtObservation != QualStatus.QUALIFIED) return (false, E_QUAL_OBSERVATION);
+
+        // clause 7: and still holds now
+        if (qualification[e.provider].status != QualStatus.QUALIFIED) return (false, E_DISQUALIFIED);
+
+        return (true, OK);
+    }
+
+    /// @notice Same predicate, with the checker's own clock, plus a skew refusal so
+    ///         an off-chain decision made far from chain time cannot be trusted.
+    function isReleasableAt(uint256 jobId, uint64 nowTs, uint64 chainTs) external view returns (bool ok, bytes32 reason) {
+        uint64 diff = nowTs > chainTs ? nowTs - chainTs : chainTs - nowTs;
+        if (diff > maxSkew) return (false, E_CONDITION);
+        return isReleasable(jobId, nowTs);
+    }
+
+    function approvedEvidence(uint256 jobId) external view returns (bytes32) { return approval[jobId].evidenceId; }
+
+    function _reasonForStatus(Evidence storage e) private view returns (bytes32) {
+        if (e.status == EvidenceStatus.STALE)        return E_STALE;
+        if (e.status == EvidenceStatus.SUPERSEDED)   return E_SUPERSEDED;
+        if (e.status == EvidenceStatus.DISQUALIFIED) return E_DISQUALIFIED;
+        if (e.status == EvidenceStatus.DISPUTED)     return E_INVALIDATED;
+        return E_INVALIDATED;
+    }
+}
