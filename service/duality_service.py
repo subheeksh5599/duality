@@ -296,3 +296,49 @@ STATE: State | None = None
 class Handler(BaseHTTPRequestHandler):
     server_version = "duality/0.1"
 
+    def log_message(self, fmt, *args):
+        print(f"  [{self.corr[:8]}] " + fmt % args, file=sys.stderr)
+
+    def _send(self, code: int, payload: dict):
+        body = json.dumps(payload, indent=2, default=str).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Correlation-Id", self.corr)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_html(self, path: str):
+        body = open(path, "rb").read()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):  # noqa: N802
+        self.corr = uuid.uuid4().hex
+        try:
+            if self.path in ("/", "/index.html"):
+                ui = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui.html")
+                return self._send_html(ui)
+            if self.path == "/health":
+                return self._send(200, {"ok": True, "chainId": STATE.ch.dep["chainId"],
+                                        "core": STATE.ch.dep["core"], "counters": dict(STATE.counters)})
+            if self.path == "/events":
+                return self._send(200, {"events": STATE.history()})
+            if self.path.startswith("/jobs/"):
+                job_id = int(self.path.split("/")[2])
+                return self._send(200, STATE.job_view(job_id))
+            if self.path == "/jobs":
+                return self._send(200, {"jobs": STATE.list_jobs()})
+        except Exception as exc:  # noqa: BLE001
+            return self._send(500, {"error": f"{type(exc).__name__}: {exc}", "correlationId": self.corr})
+        return self._send(404, {"error": "not found", "correlationId": self.corr})
+
+    def do_POST(self):  # noqa: N802
+        self.corr = uuid.uuid4().hex
+        try:
+            parts = self.path.strip("/").split("/")
+            if len(parts) < 3 or parts[0] != "jobs":
+                return self._send(404, {"error": "not found", "correlationId": self.corr})
