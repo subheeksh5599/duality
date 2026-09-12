@@ -158,3 +158,53 @@ class State:
     def _next_version(self, job_id: int) -> int:
         return self.ch.reg.functions.currentVersion(job_id, keccak(text="subject")).call() + 1
 
+    def observe(self, job_id: int, bound: int, corr: str) -> dict:
+        """Commit a new evidence version. Never overwrites a stored one."""
+        version = self._next_version(job_id)
+        content = keccak(text=f"observation-{job_id}-v{version}-{int(time.time())}")
+        eid = keccak(self.ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                    [job_id, self.ch.addr["provider"], content, version]))
+        rc, tx = self.ch.send(self.ch.reg.functions.commit(
+            K._ev(eid, job_id, version, content, bound, int(time.time()), self.ch)), "deployer",
+            f"  observe v{version}")
+        self.counters["observations"] += 1
+        return self.event("evidence_observed", corr, jobId=job_id, version=version,
+                          freshnessBound=bound, evidenceId="0x" + eid.hex(), tx=tx)
+
+    def approve(self, job_id: int, corr: str) -> dict:
+        eid = self.ch.reg.functions.approval(job_id).call()[0]
+        latest = self._latest_version_evidence(job_id)
+        rc, tx = self.ch.send(self.ch.reg.functions.approve(
+            job_id, latest, keccak(text=f"evaluation-{job_id}-{int(time.time())}")), "deployer", "  approve")
+        self.counters["approvals"] += 1
+        return self.event("evidence_approved", corr, jobId=job_id, evidenceId="0x" + latest.hex(), tx=tx)
+
+    def _latest_version_evidence(self, job_id: int) -> bytes:
+        subject = keccak(text="subject")
+        ver = self.ch.reg.functions.currentVersion(job_id, subject).call()
+        return self.ch.reg.functions.versionEvidence(job_id, subject, ver).call()
+
+    def invalidate(self, job_id: int, kind: str, corr: str) -> dict:
+        """The mutation control. Each class changes real state, and nothing else."""
+        if kind == "stale":
+            # staleness is a property of time, not a state change we can write. The
+            # honest way to force it is to observe a one second window, approve it,
+            # and let it lapse, so the approved evidence is the current version and
+            # clause 5 is what fails.
+            self.observe(job_id, 1, corr)
+            self.approve(job_id, corr)
+            time.sleep(2)
+            tx = "0x" + "0" * 64
+            self.counters["mutations_stale"] += 1
+        elif kind == "supersede":
+            ver = self._next_version(job_id)
+            content = keccak(text=f"superseding-{job_id}-v{ver}")
+            eid = keccak(self.ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
+                        [job_id, self.ch.addr["provider"], content, ver]))
+            rc, tx = self.ch.send(self.ch.reg.functions.commit(
+                K._ev(eid, job_id, ver, content, 3600, int(time.time()), self.ch)), "deployer",
+                f"  mutate: supersede with v{ver}")
+            self.counters["mutations_superseded"] += 1
+        elif kind == "disqualify":
+            rc, tx = self.ch.send(self.ch.reg.functions.setQualification(self.ch.addr["provider"], 3),
+                                  "deployer", "  mutate: revoke provider qualification")
