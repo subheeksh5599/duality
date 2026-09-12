@@ -112,3 +112,49 @@ class State:
                 "decision": DECISION.get(code, "HOLD"),
                 "explanation": REASON.get(code, "unrecognised reason code"),
                 "checkedAt": now,
+                "blockTimestamp": block_ts if block_ts is not None
+                                  else self.ch.w3.eth.get_block("latest").timestamp}
+
+    def job_view(self, job_id: int, block_ts: int | None = None) -> dict:
+        j = self.ch.core.functions.getJob(job_id).call()
+        eid = self.ch.reg.functions.approval(job_id).call()[0]
+        ev = self.ch.reg.functions.getEvidence(eid).call() if eid != ZERO32 else None
+        status = {0: "Open", 1: "Funded", 2: "Submitted", 3: "Completed", 4: "Rejected", 5: "Expired"}[j[1]]
+        view = {"jobId": job_id, "status": status, "client": j[0], "provider": j[2],
+                "evaluator": j[4], "budget": str(j[6]), "hook": j[7], "expiredAt": j[3],
+                "settled": self.ch.reg.functions.settled(job_id).call()}
+        if ev:
+            view["evidence"] = {
+                "evidenceId": "0x" + bytes(ev[0]).hex(), "version": ev[7], "observedAt": ev[8],
+                "freshnessBound": ev[9], "expiresAt": ev[8] + ev[9],
+                "expired": int(time.time()) > ev[8] + ev[9],
+                "qualificationAtObservation": ev[11], "status": ev[13],
+                "providerQualificationNow": self.ch.reg.functions.qualification(j[2]).call()[0],
+            }
+        view["decision"] = self.predicate(job_id, block_ts=block_ts)
+        return view
+
+    def list_jobs(self, ids=None, ttl: float = 20.0) -> list[dict]:
+        """Bounded recent window, built in parallel, cached for a moment.
+
+        Sequentially this was ~150 round trips and took 98 seconds, which made
+        the control surface look broken when it was only slow.
+        """
+        with self.lock:
+            c = getattr(self, "_jobs_cache", None)
+            if c and time.time() - c["at"] < ttl:
+                return c["data"]
+        ids = ids or list(range(1, self.ch.core.functions.jobCounter().call() + 1))[-26:]
+        block_ts = self.ch.w3.eth.get_block("latest").timestamp
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            views = list(pool.map(lambda i: self.job_view(i, block_ts), ids))
+        views = [v for v in views if v]
+        with self.lock:
+            self._jobs_cache = {"at": time.time(), "data": views}
+        return views
+
+    # ------------------------------------------------------------- actions
+    def _next_version(self, job_id: int) -> int:
+        return self.ch.reg.functions.currentVersion(job_id, keccak(text="subject")).call() + 1
+
