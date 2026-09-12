@@ -1,0 +1,106 @@
+{
+  "chainId": 84532,
+  "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+  "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
+  "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "roles": {
+    "buyer": "0x3991D5267e013fB9d5f2fbb30B8F3D8FF97C1AD9",
+    "provider": "0x20Fd7Bec60829230A1CFBe4cAf25A12Ab2E49aa9",
+    "evaluator": "0x617B0e8d15c3A48dDF2EC70AB17bF7CC7DbF3046"
+  },
+  "jobId": 6,
+  "evidenceV1": "b065892e38c0ade5cdf1da68d19a8e26b5ae2bc0ac71700db829c533f39e32db",
+  "evidenceV2": "f5b4714c393554e1c68d36de029c439c077f9d914f63607bb9e7d625947ab911",
+  "holdTx": "e493ef893a9004922b9999a2005cacb70f93c7a1d55a4c45643fc802913da0ec",
+  "releaseTx": "4b2a020f288720366ab8dad9a33056195e8b820847f6cb4095fbef11a7c4c05d",
+  "doubleSettleTx": "9afb1dcedff79dd9853117e9a821ef9816527b3ad066f6d62f1b011ec3620b94",
+  "holdExplorer": "https://sepolia.basescan.org/tx/e493ef893a9004922b9999a2005cacb70f93c7a1d55a4c45643fc802913da0ec",
+  "releaseExplorer": "https://sepolia.basescan.org/tx/4b2a020f288720366ab8dad9a33056195e8b820847f6cb4095fbef11a7c4c05d",
+  "doubleSettleExplorer": "https://sepolia.basescan.org/tx/9afb1dcedff79dd9853117e9a821ef9816527b3ad066f6d62f1b011ec3620b94",
+  "providerUsdc": {
+    "before": 0.6,
+    "afterRelease": 2.6,
+    "final": 2.6
+  },
+  "allSteps": [
+    {
+      "label": "usdc.approve(core)",
+      "actor": "client",
+      "status": "OK",
+      "tx": "3245a8ffdd8a0f6af474a3d1dce76456b7d4c87296e3df7ed17d1246c2d34f48"
+    },
+    {
+      "label": "createJob (client)",
+      "actor": "client",
+      "status": "OK",
+      "tx": "60f88c1129d5c721de21abc7135022c7c3fb2416a075a5d2deabfebdda60b4a2"
+    },
+    {
+      "label": "setBudget 1 USDC (provider prices)",
+      "actor": "provider",
+      "status": "OK",
+      "tx": "0ab8a4b110bc84caaefc4f1874e72df31584a1403c97269e37a2b15920740537"
+    },
+    {
+      "label": "fund 1 USDC into escrow (client)",
+      "actor": "client",
+      "status": "OK",
+      "tx": "37988f7154652e212d4ba5f8677ade728e419ad842e3645b369d0e1a0dcb04a9"
+    },
+    {
+      "label": "submit deliverable (provider)",
+      "actor": "provider",
+      "status": "OK",
+      "tx": "5970b2a109aadd426c7d1608fd8f53eb137d93d35629d5b6a44af235c5a72ab3"
+    },
+    {
+      "label": "setQualification(provider, QUALIFIED)",
+      "actor": "deployer",
+      "status": "OK",
+      "tx": "799b97969e6dd4c28f5778d12f34fa2c0e5fb15599d41d574c49f7afe1a3f087"
+    },
+    {
+      "label": "commit evidence v1 (freshness 5s)",
+      "actor": "deployer",
+      "status": "OK",
+      "tx": "15f3e0b13c76f08ae383c9f9e47360b7b27f74125b7c54ea8b4cba776763892d"
+    },
+    {
+      "label": "approve v1 at evaluation time",
+      "actor": "deployer",
+      "status": "OK",
+      "tx": "b80900e2e83f100b07895771cfcc7731657253bf59b2dee62e0ca84b1acda533"
+    },
+    {
+      "label": "complete attempt #1 -> gate holds the money",
+      "actor": "evaluator",
+      "status": "BLOCKED",
+      "tx": "e493ef893a9004922b9999a2005cacb70f93c7a1d55a4c45643fc802913da0ec"
+    },
+    {
+      "label": "commit evidence v2 (freshness 1h)",
+      "actor": "deployer",
+      "status": "OK",
+      "tx": "4f365b0e4d1a7da6eaee460b9eea9c4d2963b04d147eb7343ac9ae8093bd207f"
+    },
+    {
+      "label": "approve v2",
+      "actor": "deployer",
+      "status": "OK",
+      "tx": "89a30f4832992dd094344f1ee6fef9143ebc5dd6ecdbb96b88744d135fd967cc"
+    },
+    {
+      "label": "complete attempt #2 -> RELEASED",
+      "actor": "evaluator",
+      "status": "OK",
+      "tx": "4b2a020f288720366ab8dad9a33056195e8b820847f6cb4095fbef11a7c4c05d"
+    },
+    {
+      "label": "complete attempt #3 -> no double settlement",
+      "actor": "evaluator",
+      "status": "BLOCKED",
+      "tx": "9afb1dcedff79dd9853117e9a821ef9816527b3ad066f6d62f1b011ec3620b94"
+    }
+  ]
+}
