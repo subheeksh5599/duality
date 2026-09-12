@@ -211,7 +211,7 @@ class State:
             self.counters["mutations_disqualified"] += 1
         else:
             raise ValueError(f"unknown invalidation class {kind}")
-        return self.event("fact_mutated", corr, jobId=job_id, mutationKind=kind, tx=tx)
+        return self.event("fact_mutated", corr, jobId=job_id, kind=kind, tx=tx)
 
     def check(self, job_id: int, corr: str) -> dict:
         v = self.predicate(job_id)
