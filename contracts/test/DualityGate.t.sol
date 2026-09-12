@@ -160,3 +160,55 @@ contract DualityGateTest is Test {
             DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_SUPERSEDED()
         ));
         _release(jobId);
+        assertEq(usdc.balanceOf(provider), before, "no money moved");
+    }
+
+    function test_disqualified_blocksRelease() public {
+        (uint256 jobId,) = _openJob();
+        uint256 before = usdc.balanceOf(provider);
+
+        reg.setQualification(provider, EvidenceRegistry.QualStatus.REVOKED);
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_DISQUALIFIED()
+        ));
+        _release(jobId);
+        assertEq(usdc.balanceOf(provider), before, "no money moved");
+    }
+
+    function test_qualificationAtObservation_blocksRelease() public {
+        vm.prank(client);
+        uint256 jobId = core.createJob(provider, evaluator, uint48(block.timestamp + 1 hours),
+                                       "quote", address(hook), 1);
+        vm.prank(provider); core.setBudget(jobId, address(usdc), BUDGET, "");
+        vm.prank(client); core.fund(jobId, address(usdc), BUDGET, "");
+        vm.prank(provider); core.submit(jobId, keccak256("d"), "");
+
+        // qualified NOW, but was on probation when the reading was taken
+        bytes32 id = _commit(jobId, 1, EvidenceRegistry.QualStatus.PROBATION, FRESH);
+        reg.approve(jobId, id, keccak256("evaluation-1"));
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_QUAL_OBSERVATION()
+        ));
+        _release(jobId);
+    }
+
+    function test_invalidated_evidence_blocksRelease() public {
+        (uint256 jobId, bytes32 evidenceId) = _openJob();
+        reg.invalidate(evidenceId, EvidenceRegistry.EvidenceStatus.DISQUALIFIED, reg.E_INVALIDATED());
+
+        vm.expectRevert(abi.encodeWithSelector(
+            DualityGateHook.ReleaseBlocked.selector, jobId, reg.E_DISQUALIFIED()
+        ));
+        _release(jobId);
+    }
+
+    // ------------------------------------------------ idempotency and refunds
+
+    function test_releaseCannotHappenTwice() public {
+        (uint256 jobId,) = _openJob();
+        _release(jobId);
+        uint256 paid = usdc.balanceOf(provider);
+
+        vm.expectRevert();                    // core refuses: status is no longer Submitted
