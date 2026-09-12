@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+out/
+cache/
+lib/
+artifacts/build/
+web/.next/
+__pycache__/
+*.log
+.pytest_cache/
