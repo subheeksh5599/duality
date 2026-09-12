@@ -51,3 +51,66 @@ contract EvidenceRegistry {
     bytes32 public constant E_NOT_APPROVED    = "E_NOT_APPROVED";
     bytes32 public constant E_STALE           = "E_STALE";
     bytes32 public constant E_SUPERSEDED      = "E_SUPERSEDED";
+    bytes32 public constant E_DISQUALIFIED    = "E_DISQUALIFIED";
+    bytes32 public constant E_QUAL_OBSERVATION= "E_QUAL_OBSERVATION";
+    bytes32 public constant E_PROVENANCE      = "E_PROVENANCE";
+    bytes32 public constant E_SUBJECT         = "E_SUBJECT";
+    bytes32 public constant E_CONDITION       = "E_CONDITION";
+    bytes32 public constant E_ALREADY_SETTLED = "E_ALREADY_SETTLED";
+    bytes32 public constant E_HASH_MISMATCH   = "E_HASH_MISMATCH";
+    bytes32 public constant E_INVALIDATED     = "E_INVALIDATED";
+
+    address public committer;    // the evaluator service key
+    address public qualifier;    // qualification controller
+    address public gateHook;     // the release gate permitted to record settlement
+    uint64  public maxSkew;      // toleranted |evaluatorNow - block.timestamp|
+
+    mapping(bytes32 => Evidence) private _evidence;
+    mapping(uint256 => mapping(bytes32 => uint64))  public currentVersion;   // jobId,subject -> version
+    mapping(uint256 => mapping(bytes32 => mapping(uint64 => bytes32))) public versionEvidence;
+    mapping(uint256 => Approval) public approval;
+    mapping(address => Qualification) public qualification;
+    mapping(uint256 => bool) public settled;
+
+    event EvidenceCommitted(bytes32 indexed evidenceId, uint256 indexed jobId, address indexed provider,
+                            uint64 version, uint64 observedAt, uint64 freshnessBound,
+                            QualStatus qualificationAtObservation, bytes32 contentHash);
+    event EvidenceApproved(uint256 indexed jobId, bytes32 indexed evidenceId, bytes32 evaluationId);
+    event EvidenceInvalidated(bytes32 indexed evidenceId, EvidenceStatus status, bytes32 reason);
+    event QualificationSet(address indexed provider, QualStatus status, uint64 revision);
+    event ReleaseChecked(uint256 indexed jobId, bytes32 indexed evidenceId, bool ok, bytes32 reason, uint64 at);
+    event Settled(uint256 indexed jobId, bytes32 indexed evidenceId, uint64 at);
+
+    error NotCommitter();
+    error NotQualifier();
+    error BadVersion();
+    error UnknownEvidence();
+    error JobMismatch();
+    error AlreadyInvalidated();
+    error AlreadySettled();
+
+    modifier onlyCommitter() { if (msg.sender != committer) revert NotCommitter(); _; }
+    modifier onlyCommitterOrHook() { if (msg.sender != committer && msg.sender != gateHook) revert NotCommitter(); _; }
+    modifier onlyQualifier() { if (msg.sender != qualifier) revert NotQualifier(); _; }
+
+    constructor(address committer_, address qualifier_, uint64 maxSkew_) {
+        committer = committer_;
+        qualifier = qualifier_;
+        maxSkew = maxSkew_;
+    }
+
+    // ------------------------------------------------------------------ writes
+
+    /// @notice Append a new evidence observation. Never rewrites history: a new
+    ///         observation is a new version, and the prior version stays recorded.
+    function commit(Evidence calldata e) external onlyCommitter {
+        if (e.evidenceId != evidenceIdFor(e.jobId, e.provider, e.contentHash, e.version)) revert JobMismatch();
+        if (e.version != currentVersion[e.jobId][e.subject] + 1) revert BadVersion();
+        _evidence[e.evidenceId] = e;
+        _evidence[e.evidenceId].status = EvidenceStatus.CURRENT;
+        _evidence[e.evidenceId].invalidationReason = OK;
+        currentVersion[e.jobId][e.subject] = e.version;
+        versionEvidence[e.jobId][e.subject][e.version] = e.evidenceId;
+        emit EvidenceCommitted(e.evidenceId, e.jobId, e.provider, e.version, e.observedAt,
+                               e.freshnessBound, e.qualificationAtObservation, e.contentHash);
+    }
