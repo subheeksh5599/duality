@@ -342,3 +342,42 @@ class Handler(BaseHTTPRequestHandler):
             parts = self.path.strip("/").split("/")
             if len(parts) < 3 or parts[0] != "jobs":
                 return self._send(404, {"error": "not found", "correlationId": self.corr})
+            job_id, action = int(parts[1]), parts[2]
+            if action == "check":
+                return self._send(200, STATE.check(job_id, self.corr))
+            if action == "observe":
+                return self._send(200, STATE.observe(job_id, 3600, self.corr))
+            if action == "approve":
+                return self._send(200, STATE.approve(job_id, self.corr))
+            if action == "invalidate":
+                return self._send(200, STATE.invalidate(job_id, "supersede", self.corr))
+            if action == "invalidate-stale":
+                return self._send(200, STATE.invalidate(job_id, "stale", self.corr))
+            if action == "invalidate-disqualify":
+                return self._send(200, STATE.invalidate(job_id, "disqualify", self.corr))
+            if action == "reconcile":
+                return self._send(200, STATE.reconcile(job_id, self.corr))
+            if action == "release":
+                return self._send(200, STATE.release(job_id, self.corr))
+            return self._send(404, {"error": f"unknown action {action}", "correlationId": self.corr})
+        except Exception as exc:  # noqa: BLE001
+            return self._send(500, {"error": f"{type(exc).__name__}: {exc}", "correlationId": self.corr})
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument("--env", default=None, help="env file; defaults to $DUALITY_ENV or ./.env")
+    args = ap.parse_args()
+    global STATE
+    STATE = State(K.load_env(args.env))
+    print(f"DUALITY service on :{args.port}  chain {STATE.ch.dep['chainId']}")
+    print(f"  core {STATE.ch.dep['core']}  gate {STATE.ch.dep['gateHook']}")
+    # warm the list cache off the request path, so the first page load is fast
+    threading.Thread(target=lambda: (STATE.list_jobs(), print("  list cache warm")), daemon=True).start()
+    ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
