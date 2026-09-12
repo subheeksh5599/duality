@@ -1,0 +1,70 @@
+{
+  "network": "base-sepolia",
+  "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+  "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
+  "keeperHubWallet": "0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf",
+  "classes": {
+    "SUPERSEDED": {
+      "jobId": 17,
+      "httpStatus": 400,
+      "wouldRevert": true,
+      "predicateOk": false,
+      "predicateReason": "E_SUPERSEDED",
+      "revertReason": "ReleaseBlocked(17, 0x455f535550455253454445440000000000000000000000000000000000000000)",
+      "decoded": "ReleaseBlocked(jobId=17, reason=E_SUPERSEDED)",
+      "reasonLegibleViaKeeperHub": true,
+      "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+    },
+    "SUPERSEDED_recovered_release": {
+      "httpStatus": 202,
+      "executionId": "05d269jk3yx0xpllgsf6l",
+      "status": "completed",
+      "transactionHash": "0x7640ff105a0ebcab9229f9ecfba803a64aabe1adadf881dd28d2af9caf351e5c",
+      "transactionLink": "https://sepolia.basescan.org/tx/0x7640ff105a0ebcab9229f9ecfba803a64aabe1adadf881dd28d2af9caf351e5c"
+    },
+    "DISQUALIFIED": {
+      "jobId": 18,
+      "httpStatus": 400,
+      "wouldRevert": true,
+      "predicateOk": false,
+      "predicateReason": "E_DISQUALIFIED",
+      "revertReason": "ReleaseBlocked(18, 0x455f4449535155414c4946494544000000000000000000000000000000000000)",
+      "decoded": "ReleaseBlocked(jobId=18, reason=E_DISQUALIFIED)",
+      "reasonLegibleViaKeeperHub": true,
+      "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+    },
+    "DISQUALIFIED_then_restored": {
+      "jobId": 18,
+      "httpStatus": 200,
+      "wouldRevert": false,
+      "predicateOk": true,
+      "predicateReason": "",
+      "revertReason": "None",
+      "decoded": "None",
+      "reasonLegibleViaKeeperHub": true,
+      "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+    },
+    "STALE": {
+      "jobId": 19,
+      "httpStatus": 400,
+      "wouldRevert": true,
+      "predicateOk": false,
+      "predicateReason": "E_STALE",
+      "revertReason": "ReleaseBlocked(19, 0x455f5354414c4500000000000000000000000000000000000000000000000000)",
+      "decoded": "ReleaseBlocked(jobId=19, reason=E_STALE)",
+      "reasonLegibleViaKeeperHub": true,
+      "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+    },
+    "NOT_APPROVED": {
+      "jobId": 20,
+      "httpStatus": 400,
+      "wouldRevert": true,
+      "predicateOk": false,
+      "predicateReason": "E_NOT_APPROVED",
+      "revertReason": "ReleaseBlocked(20, 0x455f4e4f545f415050524f564544000000000000000000000000000000000000)",
+      "decoded": "ReleaseBlocked(jobId=20, reason=E_NOT_APPROVED)",
+      "reasonLegibleViaKeeperHub": true,
+      "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf"
+    }
+  }
+}
