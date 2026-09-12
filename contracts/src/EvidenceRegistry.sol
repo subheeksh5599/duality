@@ -114,3 +114,52 @@ contract EvidenceRegistry {
         emit EvidenceCommitted(e.evidenceId, e.jobId, e.provider, e.version, e.observedAt,
                                e.freshnessBound, e.qualificationAtObservation, e.contentHash);
     }
+
+    /// @notice Bind an approval to one exact evidence version. Clause 3 of the
+    ///         predicate reads this, so a stale approval cannot drift to newer evidence.
+    function approve(uint256 jobId, bytes32 evidenceId, bytes32 evaluationId) external onlyCommitter {
+        Evidence storage e = _evidence[evidenceId];
+        if (e.evidenceId == bytes32(0)) revert UnknownEvidence();
+        if (e.jobId != jobId) revert JobMismatch();
+        approval[jobId] = Approval(evidenceId, evaluationId, true);
+        emit EvidenceApproved(jobId, evidenceId, evaluationId);
+    }
+
+    /// @notice One-way invalidation. Sets status and reason once, then refuses.
+    function invalidate(bytes32 evidenceId, EvidenceStatus status, bytes32 reason) external onlyCommitter {
+        Evidence storage e = _evidence[evidenceId];
+        if (e.evidenceId == bytes32(0)) revert UnknownEvidence();
+        if (e.status != EvidenceStatus.CURRENT) revert AlreadyInvalidated();
+        e.status = status;
+        e.invalidationReason = reason;
+        emit EvidenceInvalidated(evidenceId, status, reason);
+    }
+
+    function setQualification(address provider, QualStatus status) external onlyQualifier {
+        Qualification storage q = qualification[provider];
+        q.status = status;
+        q.revision += 1;
+        q.updatedAt = uint64(block.timestamp);
+        emit QualificationSet(provider, status, q.revision);
+    }
+
+    function setMaxSkew(uint64 v) external onlyQualifier { maxSkew = v; }
+
+    function setGateHook(address h) external onlyQualifier { gateHook = h; }
+
+    function markSettled(uint256 jobId) external onlyCommitterOrHook {
+        if (settled[jobId]) revert AlreadySettled();
+        settled[jobId] = true;
+        emit Settled(jobId, approval[jobId].evidenceId, uint64(block.timestamp));
+    }
+
+    // ------------------------------------------------------------------- reads
+
+    function evidenceIdFor(uint256 jobId, address provider, bytes32 contentHash, uint64 version)
+        public pure returns (bytes32)
+    { return keccak256(abi.encode(jobId, provider, contentHash, version)); }
+
+    function getEvidence(bytes32 evidenceId) external view returns (Evidence memory) { return _evidence[evidenceId]; }
+
+    /// @notice THE PREDICATE. Clauses 2,3,4,5,6,7,8,10 of the specification.
+    ///         Clause 1 (ACP approval) is enforced by ERC-8183 itself: complete()
