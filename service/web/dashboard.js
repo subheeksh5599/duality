@@ -243,6 +243,12 @@ function applyMode() {
   if (head) head.textContent = 'audit log, all jobs, recorded, then this session';
   const barSub = $('bar-sub');
   if (barSub) barSub.textContent = 'read-only viewer';
+  const actNote = $('act-note');
+  if (actNote) {
+    actNote.hidden = false;
+    actNote.textContent = 'greyed actions need the committer key and cannot run here under any ' +
+      'verdict. check is the one this page performs, and it is a real read.';
+  }
   // a static build cannot sign, so it must not offer the actions that sign
   document.querySelectorAll('.act').forEach((b) => {
     if (b.dataset.act === 'check') return;

@@ -318,7 +318,10 @@ pre.code .hl{color:var(--signal)}
 .act.expected-block{border-style:dashed;border-color:var(--signal);color:var(--signal)}
 /* on a static build release is locked, and a locked control must not look armed */
 .act.expected-block[disabled]{border-style:solid;border-color:var(--rule-on-dark);color:var(--fg)}
-.act[disabled]{opacity:.4;cursor:not-allowed}
+.act[disabled]{opacity:.3;cursor:not-allowed}
+/* said at the row itself: the ambiguity is here, not in the notice above */
+.act-note{margin:0;padding:16px clamp(18px,2.4vw,28px) 0;font-family:var(--mono);font-size:11.5px;
+  color:var(--dim)}
 
 .log{padding:0}
 .logrow{display:grid;grid-template-columns:78px 168px 1fr auto;gap:14px;align-items:baseline;
