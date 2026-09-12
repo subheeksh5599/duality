@@ -37,13 +37,14 @@ An ERC-8183 release gate. The standard proves the work at evaluation time. DUALI
 - [9. Engineering decisions and the hard problems](#9-engineering-decisions-and-the-hard-problems)
 - [10. Real vs pending](#10-real-vs-pending)
 - [11. Tests](#11-tests)
-- [12. Run locally](#12-run-locally)
-- [13. Configuration](#13-configuration)
-- [14. Deploy](#14-deploy)
-- [15. Project layout](#15-project-layout)
-- [16. Tech stack](#16-tech-stack)
-- [17. Prior art](#17-prior-art)
-- [18. Roadmap](#18-roadmap)
+- [12. The web surfaces](#12-the-web-surfaces)
+- [13. Run locally](#13-run-locally)
+- [14. Configuration](#14-configuration)
+- [15. Deploy](#15-deploy)
+- [16. Project layout](#16-project-layout)
+- [17. Tech stack](#17-tech-stack)
+- [18. Prior art](#18-prior-art)
+- [19. Roadmap](#19-roadmap)
 - [License](#license)
 
 ---
@@ -294,7 +295,8 @@ One gap found while building this is filed upstream as **[KeeperHub#2430](https:
 | all four invalidation classes refused on live chain | real, `artifacts/invalidation-classes.json` |
 | KeeperHub executes the release, with its own simulation reporting the refusal | real, execution `qyn8k10j5mv6529c5cjtu` |
 | evaluator service with nine endpoints | real, `service/duality_service.py` |
-| control surface reading only from those endpoints | real, `service/ui.html` |
+| landing page and control surface, reading only from those endpoints | real, `service/web/` |
+| clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
 | a live ACP job | **pending**: the jobs are ERC-8183, the standard whose escrow model ACP implements |
 | source verification on Basescan | **pending** |
 | mainnet | **not attempted**, chain 84532 only |
@@ -324,7 +326,23 @@ Suite result: ok. 10 passed; 0 failed; 0 skipped
 
 These run against the upstream ERC-8183 core through a UUPS proxy with a whitelisted hook and a real mock USDC, not against a stub. `test_gateCannotBlockRefund` is the one that matters most: it asserts the gate cannot trap a client's funds.
 
-## 12. Run locally
+## 12. The web surfaces
+
+Both are served by the same process, read only from the endpoints in section 5,
+and have no build step, no bundler and no mock data.
+
+| route | file | what it is |
+|---|---|---|
+| `/` | `service/web/landing.html` | the landing page |
+| `/dashboard` | `service/web/dashboard.html` | the control surface: select a job, read the approval in the left half and the live predicate in the right half, then act |
+| `/duality.css` | `service/web/duality.css` | the design system both pages share, including the self-hosted Geist faces |
+
+The dashboard's counters are folded from `artifacts/events.jsonl` rather than from
+process memory, so they survive a restart and agree with the audit log. Web assets
+are served through an allowlist rather than a path join, so a crafted path cannot
+leave the directory.
+
+## 13. Run locally
 
 ```bash
 git clone https://github.com/subheeksh5599/duality && cd duality
@@ -349,10 +367,12 @@ export DUALITY_ENV=.env
 .venv/bin/python scripts/onchain_e2e.py
 
 # the service and its control surface
-.venv/bin/python service/duality_service.py --port 8787   # then open http://127.0.0.1:8787/
+.venv/bin/python service/duality_service.py --port 8787
+#   http://127.0.0.1:8787/           the landing page
+#   http://127.0.0.1:8787/dashboard  the control surface, which drives the actions below
 ```
 
-## 13. Configuration
+## 14. Configuration
 
 Every script reads `$DUALITY_ENV`, else `./.env`, else the process environment. Nothing reads a path outside the project.
 
@@ -367,7 +387,7 @@ Every script reads `$DUALITY_ENV`, else `./.env`, else the process environment. 
 
 Three distinct addresses are required: the core rejects a job whose client, provider and evaluator are not distinct. No key is in this repository.
 
-## 14. Deploy
+## 15. Deploy
 
 ```bash
 cd contracts
@@ -378,7 +398,7 @@ forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --broadcast -vv
 
 The script whitelists the hook and allowlists the payment token in the same run, because `createJob` refuses a job whose hook is not whitelisted.
 
-## 15. Project layout
+## 16. Project layout
 
 ```text
 contracts/
@@ -389,7 +409,11 @@ contracts/
   script/Deploy.s.sol             deploys and wires the stack
 service/
   duality_service.py              nine endpoints over the deployed contracts
-  ui.html                         the control surface, served by the service
+  web/landing.html                the public page, served at /
+  web/dashboard.html              the control surface, served at /dashboard
+  web/duality.css                 the design system both pages share
+  web/dashboard.js                reads only from the service endpoints
+  web/fonts/                      Geist and Geist Mono, self-hosted, OFL
 scripts/
   prove_invalidation_classes.py   all four classes, live
   keeperhub_release.py            the release, executed by KeeperHub
@@ -403,7 +427,7 @@ artifacts/                        run records: transactions, refusals, audit log
 deployments/base-sepolia.json     the live deployment
 ```
 
-## 16. Tech stack
+## 17. Tech stack
 
 | layer | |
 |---|---|
@@ -413,13 +437,13 @@ deployments/base-sepolia.json     the live deployment
 | network | Base Sepolia (84532), USDC escrow |
 | execution rail | KeeperHub direct execution API |
 
-## 17. Prior art
+## 18. Prior art
 
 Escrow, evaluator agents, disputes, attestations, freshness gates for trading, capability revocation and job expiry all exist, and `docs/PRIOR-ART.md` credits each by name.
 
 What was not found, after searching, is a system that refuses to release funds because the evidence behind an approval has expired, been superseded, or lost its qualification between approval and payment. That interval is what this project is.
 
-## 18. Roadmap
+## 19. Roadmap
 
 - wire `isReleasableAt` and `maxSkew` into the service's decision path, so the skew tolerance is enforced rather than declared
 - a scheduler, so a lapsed window holds without being asked

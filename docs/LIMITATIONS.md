@@ -78,6 +78,18 @@ that an LLM is never the final authority for moving money.
 Stated plainly, because a README that implies otherwise is the more damaging
 error:
 
+- **Clause 8 is declared but not enforced.** The specification's predicate has ten
+  clauses. `EvidenceRegistry.isReleasable` enforces seven of them directly
+  (clauses 2,3,4,5,6,7,10), clause 1 is enforced by ERC-8183's own `complete()`,
+  and clause 9 is delegated to an external oracle. Clause 8, the provenance
+  commitment, is **not** checked. `provenanceHash` is stored on every observation
+  so the envelope stays auditable, but no branch reads it, which means an approval
+  can release against evidence whose provenance envelope was never compared to the
+  job's committed provenance. This was found by reading the predicate against its
+  own doc comment, and the comment was corrected rather than the clause, because
+  changing the predicate changes the deployed bytecode and invalidates the address
+  set, the ten tests and the live runs recorded in `artifacts/`. The fix is small
+  and is listed in the roadmap.
 - **No structured logging.** Every request gets a correlation id, the response
   carries it, and every state change is appended to the audit log, but the log is
   a JSONL file rather than a logging pipeline with levels and shipping. The

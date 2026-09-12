@@ -161,9 +161,13 @@ contract EvidenceRegistry {
 
     function getEvidence(bytes32 evidenceId) external view returns (Evidence memory) { return _evidence[evidenceId]; }
 
-    /// @notice THE PREDICATE. Clauses 2,3,4,5,6,7,8,10 of the specification.
+    /// @notice THE PREDICATE. Clauses 2,3,4,5,6,7,10 of the specification.
     ///         Clause 1 (ACP approval) is enforced by ERC-8183 itself: complete()
     ///         is evaluator-only and the job must be Submitted.
+    ///         Clause 8 (provenance) is NOT enforced here. The field is recorded so
+    ///         the envelope is auditable, but no check reads it yet. See
+    ///         docs/LIMITATIONS.md, finding 1. Do not read this predicate as
+    ///         covering clause 8.
     ///         Clause 9 (job conditions) is delegated to an external oracle; when
     ///         none is configured it is documented as vacuously true.
     function isReleasable(uint256 jobId, uint64 nowTs) public view returns (bool ok, bytes32 reason) {
