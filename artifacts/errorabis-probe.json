@@ -1,0 +1,63 @@
+{
+  "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+  "decodeShapes": [
+    {
+      "decoded": false,
+      "httpStatus": 400,
+      "label": "abi = the call target's ABI alone",
+      "revertReason": "Simulation reverted: execution reverted (unknown custom error) (action=\"call\", data=\"0x5192a3c5000000000000000000000000000000000000000000000000000000000000001d455f535550455253454445440000000000000000000000000000000000000000\", reason=null, transaction={ \"data\": \"0xd75bbdf3000000000000000000000000000000000000000000000000000000000000001dabababababababababababababababababababababababababababababababab"
+    },
+    {
+      "decoded": false,
+      "httpStatus": 400,
+      "label": "abi = the target's, errorAbis = the hook's errors",
+      "revertReason": "Simulation reverted: execution reverted (unknown custom error) (action=\"estimateGas\", data=\"0x5192a3c5000000000000000000000000000000000000000000000000000000000000001d455f535550455253454445440000000000000000000000000000000000000000\", reason=null, transaction={ \"data\": \"0xd75bbdf3000000000000000000000000000000000000000000000000000000000000001dababababababababababababababababababababababababababababa"
+    },
+    {
+      "decoded": true,
+      "httpStatus": 400,
+      "label": "abi = the target's with the hook's errors appended",
+      "revertReason": "ReleaseBlocked(29, 0x455f535550455253454445440000000000000000000000000000000000000000)"
+    }
+  ],
+  "decodingShape": "abi = the target's with the hook's errors appended",
+  "fieldValidity": [
+    {
+      "behavedAsThoughFieldAbsent": false,
+      "expectedRejectedIfFieldIsRead": false,
+      "httpStatus": 400,
+      "label": "control: no errorAbis",
+      "message": "ABI is required. Could not auto-fetch ABI: Unable to fetch ABI for 0x86b951233E131d2dc0931aeB70ebc9Da17e998f6 on chain 84532. Contract may not be verified.",
+      "rejected": false
+    },
+    {
+      "behavedAsThoughFieldAbsent": true,
+      "expectedRejectedIfFieldIsRead": true,
+      "httpStatus": 400,
+      "label": "empty document",
+      "message": "ABI is required. Could not auto-fetch ABI: Unable to fetch ABI for 0x86b951233E131d2dc0931aeB70ebc9Da17e998f6 on chain 84532. Contract may not be verified.",
+      "rejected": false
+    },
+    {
+      "behavedAsThoughFieldAbsent": true,
+      "expectedRejectedIfFieldIsRead": true,
+      "httpStatus": 400,
+      "label": "a document that is not an ABI",
+      "message": "ABI is required. Could not auto-fetch ABI: Unable to fetch ABI for 0x86b951233E131d2dc0931aeB70ebc9Da17e998f6 on chain 84532. Contract may not be verified.",
+      "rejected": false
+    },
+    {
+      "behavedAsThoughFieldAbsent": true,
+      "expectedRejectedIfFieldIsRead": true,
+      "httpStatus": 400,
+      "label": "five documents, over the documented cap of four",
+      "message": "ABI is required. Could not auto-fetch ABI: Unable to fetch ABI for 0x86b951233E131d2dc0931aeB70ebc9Da17e998f6 on chain 84532. Contract may not be verified.",
+      "rejected": false
+    }
+  ],
+  "hostedApiReadsErrorAbis": false,
+  "jobId": 29,
+  "network": "base-sepolia",
+  "probedAt": 1789454850,
+  "verdict": "the hosted API does not honour errorAbis, and a hook refusal decodes only through the shape: abi = the target's with the hook's errors appended"
+}

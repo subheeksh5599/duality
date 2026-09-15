@@ -5,7 +5,13 @@ against the real handler with the real chain behind it.
 """
 from __future__ import annotations
 
+import json
+import os
+
 from conftest import raw_request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 
 def test_health_reports_the_deployment_and_folded_counters(http):
@@ -27,8 +33,15 @@ def test_jobs_list_is_a_bounded_window(http):
     assert all("jobId" in j and "decision" in j for j in jobs)
 
 
+def settled_job() -> int:
+    """Read from the ACP lane's run record rather than pinned in this file."""
+    run = json.load(open(os.path.join(ROOT, "artifacts", "acp-provider-job.json"), encoding="utf-8"))
+    return int(run["jobId"])
+
+
 def test_job_read_carries_the_decision_and_the_skew(http):
-    status, body = http("/jobs/22")
+    job = settled_job()
+    status, body = http(f"/jobs/{job}")
     assert status == 200
     assert body["status"] == "Completed"
     assert body["decision"]["reasonCode"] == "E_ALREADY_SETTLED"
@@ -36,7 +49,7 @@ def test_job_read_carries_the_decision_and_the_skew(http):
 
 
 def test_check_returns_a_decision_and_is_recorded(svc):
-    verdict = svc.STATE.check(22, "test-correlation")
+    verdict = svc.STATE.check(settled_job(), "test-correlation")
     assert verdict["reasonCode"] == "E_ALREADY_SETTLED"
     assert verdict["decision"] == "SETTLED"
     # the audit log is the record: the check must be readable back out of it
@@ -46,7 +59,7 @@ def test_check_returns_a_decision_and_is_recorded(svc):
 
 
 def test_unknown_action_is_not_found(http):
-    status, body = http("/jobs/22/not-an-action", method="POST")
+    status, body = http(f"/jobs/{settled_job()}/not-an-action", method="POST")
     assert status == 404
     assert "unknown action" in body["error"]
 

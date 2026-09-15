@@ -69,21 +69,40 @@ def test_the_run_recorded_a_refusal_before_the_payment(published):
     assert run["predicateWhileDisqualified"] == "E_DISQUALIFIED"
 
 
-def test_the_refusal_is_decoded_by_us_not_by_the_caller(published):
-    """The recorded refusal arrived as raw hex; the record must name what it was."""
-    import acp_provider_job as A
+def test_the_refusal_is_named_and_carries_the_reason_code(published):
+    """A refusal that is not named is not a refusal a caller can act on.
 
+    Which side names it depends on the shape the rail honours: once the gate's errors
+    travel with the call, KeeperHub names it and there is no hex left to decode here.
+    Asserting a particular side would pin this to the rail's deployment schedule, so
+    the assertion is the invariant - observed, named, and carrying the reason code.
+    """
     _binding, run = published
-    decoded = run["keeperHubHoldSimulation"]["decodedByUs"]
-    assert decoded and decoded["reason"] == "E_DISQUALIFIED"
-    assert decoded["jobId"] == run["jobId"]
-    # and the decoder still reads the same shape out of the raw text
-    again = A.decode_release_blocked(run["keeperHubHoldSimulation"]["revertReason"])
-    assert again == decoded
+    hold = run["keeperHubHoldSimulation"]
+    assert hold["wouldRevert"] is True, "the release was not refused"
+    named_by_us, named_by_rail = hold.get("decodedByUs"), hold.get("decodedByKeeperHub")
+    assert named_by_us or named_by_rail, "the refusal was observed but never named"
+    if named_by_us:
+        assert named_by_us["reason"] == "E_DISQUALIFIED"
+        assert named_by_us["jobId"] == run["jobId"]
+    else:
+        # the rail names the error and prints the bytes32 argument as hex, so the
+        # reason code is checked by decoding the same field the gate wrote
+        hexed = named_by_rail.split("0x")[-1].rstrip(")")
+        decoded_reason = bytes.fromhex(hexed[:64]).rstrip(b"\x00").decode()
+        assert decoded_reason == "E_DISQUALIFIED", named_by_rail
 
 
-def test_decoder_refuses_text_without_the_gate_error():
+def test_decoder_reads_a_raw_refusal_and_refuses_anything_else():
+    """The local decoder is the fallback for a caller the rail could not name for."""
     import acp_provider_job as A
 
+    job, reason = 21, b"E_DISQUALIFIED"
+    raw = ("Simulation reverted: execution reverted (unknown custom error) (data=\"0x5192a3c5"
+           + hex(job)[2:].rjust(64, "0")
+           + reason.hex().ljust(64, "0") + "\")")
+    decoded = A.decode_release_blocked(raw)
+    assert decoded == {"error": "ReleaseBlocked(uint256,bytes32)", "jobId": job,
+                       "reason": "E_DISQUALIFIED"}
     assert A.decode_release_blocked("Simulation reverted: execution reverted (no data)") is None
     assert A.decode_release_blocked("") is None

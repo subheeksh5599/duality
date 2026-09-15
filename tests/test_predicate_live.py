@@ -6,9 +6,24 @@ this repository says it does.
 """
 from __future__ import annotations
 
-import time
+import json
+import os
 
 import pytest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@pytest.fixture(scope="session")
+def settled_job() -> int:
+    """The job the ACP lane settled, read from its own run record.
+
+    Pinning a number here would make the suite fail the moment the lane runs
+    again, which trains a reader to ignore it.
+    """
+    run = json.load(open(os.path.join(ROOT, "artifacts", "acp-provider-job.json"),
+                         encoding="utf-8"))
+    return int(run["jobId"])
 
 
 def reason_code(chain, job_id: int, now: int, chain_ts: int) -> str:
@@ -16,11 +31,11 @@ def reason_code(chain, job_id: int, now: int, chain_ts: int) -> str:
     return bytes(reason).rstrip(b"\x00").decode(errors="replace") or "OK"
 
 
-def test_settled_job_is_refused_and_named(chain):
-    """Job 22 was released by the ACP lane, so the predicate must now refuse it."""
+def test_settled_job_is_refused_and_named(chain, settled_job):
+    """The job the ACP lane released must now be refused by the predicate."""
     chain_ts = chain.w3.eth.get_block("latest").timestamp
-    assert chain.reg.functions.settled(22).call() is True
-    assert reason_code(chain, 22, chain_ts, chain_ts) == "E_ALREADY_SETTLED"
+    assert chain.reg.functions.settled(settled_job).call() is True
+    assert reason_code(chain, settled_job, chain_ts, chain_ts) == "E_ALREADY_SETTLED"
 
 
 def test_job_with_no_approval_is_refused(chain):
@@ -29,30 +44,30 @@ def test_job_with_no_approval_is_refused(chain):
     assert reason_code(chain, ahead, chain_ts, chain_ts) == "E_NOT_APPROVED"
 
 
-def test_clock_bound_fires_past_the_declared_max_skew(chain):
+def test_clock_bound_fires_past_the_declared_max_skew(chain, settled_job):
     """The registry declares maxSkew; a decision taken outside it must not be trusted."""
     bound = chain.reg.functions.maxSkew().call()
     chain_ts = chain.w3.eth.get_block("latest").timestamp
-    assert reason_code(chain, 22, chain_ts - bound - 1, chain_ts) == "E_CONDITION"
+    assert reason_code(chain, settled_job, chain_ts - bound - 1, chain_ts) == "E_CONDITION"
 
 
-def test_clock_bound_is_not_broken_at_the_declared_value(chain):
+def test_clock_bound_is_not_broken_at_the_declared_value(chain, settled_job):
     """At exactly maxSkew the skew clause steps aside: the next clause decides."""
     bound = chain.reg.functions.maxSkew().call()
     chain_ts = chain.w3.eth.get_block("latest").timestamp
-    assert reason_code(chain, 22, chain_ts - bound, chain_ts) != "E_CONDITION"
+    assert reason_code(chain, settled_job, chain_ts - bound, chain_ts) != "E_CONDITION"
 
 
-def test_service_decision_comes_from_the_chain_function(svc, chain):
+def test_service_decision_comes_from_the_chain_function(svc, chain, settled_job):
     """The service's verdict must equal what the contract answers for the same input."""
     chain_ts = chain.w3.eth.get_block("latest").timestamp
-    view = svc.STATE.predicate(22, now=chain_ts, block_ts=chain_ts)
-    assert view["reasonCode"] == reason_code(chain, 22, chain_ts, chain_ts)
+    view = svc.STATE.predicate(settled_job, now=chain_ts, block_ts=chain_ts)
+    assert view["reasonCode"] == reason_code(chain, settled_job, chain_ts, chain_ts)
     assert view["decision"] == "SETTLED"
 
 
-def test_service_reports_the_skew_it_measured(svc):
-    view = svc.STATE.predicate(22)
+def test_service_reports_the_skew_it_measured(svc, settled_job):
+    view = svc.STATE.predicate(settled_job)
     skew = view["skew"]
     assert skew["bound"] == 120
     assert skew["delta"] == abs(skew["evaluator"] - skew["chain"])
