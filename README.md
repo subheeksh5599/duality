@@ -289,7 +289,11 @@ One gap found while building this is filed upstream as **[KeeperHub#2430](https:
 Every other lane here settles against evidence about a **deliverable**. This one settles
 against evidence about a **counterparty**: the provider side of the job is an agent that
 exists in the ACP registry, and the escrow pays that agent's own wallet rather than the
-operator that submitted on its behalf.
+operator that submitted on its behalf. It is an existing registration, reused: the
+agent's identity is read from configuration, this project registers no agent and holds no
+platform secret, and the lane refuses to run without one configured rather than
+substituting an address of its own. A counterparty this project had created would be one
+this project could vouch for, which is worth less than one that arrived with a history.
 
 ```text
 client     createJob(provider = operator, evaluator = KeeperHub's wallet, hook = the gate)

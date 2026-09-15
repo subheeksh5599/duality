@@ -7,6 +7,11 @@ provider side of the job is an agent that exists on the ACP registry, and the
 escrow pays that agent's own wallet rather than the operator that submitted on
 its behalf.
 
+The identity is an EXISTING registration, read from configuration and reused.
+This lane creates no agent, calls no registration endpoint and holds no platform
+secret: a fresh identity would be one this project invented, with no history for a
+counterparty check to find. Pointed at nothing, it refuses to run.
+
 What the chain holds, and what an outside reader can check without trusting
 this script:
 
