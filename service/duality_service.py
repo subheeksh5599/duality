@@ -99,8 +99,10 @@ class State:
         self.decisions: dict[int, dict] = {}
         self.reconciliations: dict[int, dict] = {}
         self.core_abi = json.load(open(os.path.join(K.ART, "ERC8183.sol", "ERC8183.json"), encoding="utf-8"))["abi"]
-        hook_abi = json.load(open(os.path.join(K.ART, "DualityGateHook.sol", "DualityGateHook.json"), encoding="utf-8"))["abi"]
-        self.merged_abi = self.core_abi + [x for x in hook_abi if x.get("type") == "error"]
+        # one implementation of the decoding shape, shared with the scripts: the hook's
+        # errors appended to the core's ABI, because the hosted API does not yet honour
+        # the `errorAbis` field that exists for exactly this
+        self.merged_abi = json.loads(K.decoding_abi())
         os.makedirs(os.path.dirname(EVENTS), exist_ok=True)
 
     # ------------------------------------------------------------------ audit
@@ -287,6 +289,10 @@ class State:
         verdict = self.predicate(job_id)
         body = {"contractAddress": self.ch.dep["core"], "network": K.NETWORK,
                 "abi": json.dumps(self.merged_abi), "functionName": "complete",
+                # the gate is a hook, so without this a refusal comes back as hex and the
+                # control surface shows a reader "unknown custom error" instead of the
+                # reason code the gate actually returned
+                "errorAbis": K.gate_error_abis(),
                 "functionArgs": json.dumps([str(job_id), "0x" + keccak(text="approved").hex(), "0x"])}
         st, sim = K.kh(self.env, "POST", "/api/execute/contract-call", dict(body, simulate=True),
                        idem=f"duality-sim-{job_id}-{int(time.time())}")

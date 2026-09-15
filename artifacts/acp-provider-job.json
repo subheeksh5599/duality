@@ -1,7 +1,7 @@
 {
   "agentId": "01a08682-7c76-73a8-b2c8-d2e6f42b05b3",
-  "agentUsdcAfter": 23.06,
-  "agentUsdcBefore": 22.06,
+  "agentUsdcAfter": 30.06,
+  "agentUsdcBefore": 29.06,
   "agentWallet": "0x1776ebA1f2C74b141D0C337ffCdbB0E40d77876B",
   "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
   "envelope": {
@@ -15,14 +15,14 @@
     "job": {
       "chainId": 84532,
       "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
-      "id": 22
+      "id": 31
     },
     "kind": "acp-counterparty-observation",
     "observation": {
-      "agentUsdc": "22.060000",
-      "deliverableHash": "0xd71f145259bf99f799fd172c48a03a4d96db015df1b5d9db0bb81f6b90c10161",
+      "agentUsdc": "29.060000",
+      "deliverableHash": "0xd6f297a7d91d60a1823b4f7e2f0a25588aaa9b9cb6c8d0b6905d5cddfe77e748",
       "freshnessBound": 3600,
-      "observedAt": 1789453022
+      "observedAt": 1789454954
     },
     "settlement": {
       "payoutReceiver": "0x1776ebA1f2C74b141D0C337ffCdbB0E40d77876B",
@@ -31,9 +31,9 @@
     }
   },
   "escrowUsdc": 1.0,
-  "evidenceId": "0x5239a6ca557fde45e4dcaa6474d96960b4e49d0260d490b7da250a32c69af07a",
+  "evidenceId": "0x670372259968916d5ceba5626e3531095401ef83371da95d177963b35bc51a22",
   "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
-  "jobId": 22,
+  "jobId": 31,
   "keeperHubCleanSimulation": {
     "attempts": [
       {
@@ -47,31 +47,37 @@
     "predicateAfterReinstate": "OK"
   },
   "keeperHubHoldSimulation": {
-    "decodedByKeeperHub": false,
-    "decodedByUs": {
-      "error": "ReleaseBlocked(uint256,bytes32)",
-      "jobId": 22,
-      "reason": "E_DISQUALIFIED"
-    },
+    "attempts": [
+      {
+        "attempt": 1,
+        "decoded": false,
+        "httpStatus": 400,
+        "wouldRevert": true
+      }
+    ],
+    "decodedByKeeperHub": "ReleaseBlocked(31, 0x455f4449535155414c4946494544000000000000000000000000000000000000)",
+    "decodedByUs": null,
+    "decodingNote": "the gate's own errors are attached so this refusal decodes natively once the hosted API ships the merged errorAbis field; as of this run it is accepted and ignored, which scripts/errorabis_probe.py measures and artifacts/errorabis-probe.json records",
+    "errorAbisAttached": 1,
     "httpStatus": 400,
-    "revertReason": "Simulation reverted: execution reverted (unknown custom error) (action=\"call\", data=\"0x5192a3c50000000000000000000000000000000000000000000000000000000000000016455f4449535155414c4946494544000000000000000000000000000000000000\", reason=null, transaction={ \"data\": \"0xd75bbdf300000000000000000000000000000000000000000000000000000000000000166c9e88cda0b93a4bdc550c294a2b9fa674fc4fb75630dc6597bae18a34dd573800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000\", \"from\": \"0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf\", \"to\": \"0x86b951233E131d2dc0931aeB70ebc9Da17e998f6\" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.17.0)",
+    "revertReason": "ReleaseBlocked(31, 0x455f4449535155414c4946494544000000000000000000000000000000000000)",
     "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf",
     "wouldRevert": true
   },
   "keeperHubRelease": {
-    "executionId": "13swmn6n4j8ltp5fbfgrt",
+    "executionId": "hhj5r6n0q113qqtzde8pc",
     "httpStatus": 202,
     "sponsored": true,
     "status": "completed",
-    "transactionHash": "0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c",
-    "transactionLink": "https://sepolia.basescan.org/tx/0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c"
+    "transactionHash": "0xcebb4c5528e794a6c7fcee4d50f159910a584730be2e77f073603d828d34e544",
+    "transactionLink": "https://sepolia.basescan.org/tx/0xcebb4c5528e794a6c7fcee4d50f159910a584730be2e77f073603d828d34e544"
   },
   "network": "base-sepolia",
   "predicateWhileDisqualified": "E_DISQUALIFIED",
-  "provenanceHash": "0x32492b2295ae53ed0146766ea1de6671f23d2f0f48d48d0ae8e0cab4c45f63ce",
+  "provenanceHash": "0x65eeb541a6c65a7f740415d165b7e60fe3c76b604de0af7e0794b48639927010",
   "readback": {
-    "agentUsdcAfter": 23.06,
-    "evidenceProvenanceHash": "0x32492b2295ae53ed0146766ea1de6671f23d2f0f48d48d0ae8e0cab4c45f63ce",
+    "agentUsdcAfter": 30.06,
+    "evidenceProvenanceHash": "0x65eeb541a6c65a7f740415d165b7e60fe3c76b604de0af7e0794b48639927010",
     "evidenceProvider": "0x20Fd7Bec60829230A1CFBe4cAf25A12Ab2E49aa9",
     "evidenceSubject": "0x731337e1e83c63e6e030936e465d78d8dead3c077cb3f94c5a77371418f0676c",
     "jobEvaluator": "0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf",
@@ -81,5 +87,17 @@
     "providerAgentId": 0
   },
   "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
-  "subject": "0x731337e1e83c63e6e030936e465d78d8dead3c077cb3f94c5a77371418f0676c"
+  "subject": "0x731337e1e83c63e6e030936e465d78d8dead3c077cb3f94c5a77371418f0676c",
+  "transactions": {
+    "approve": "07a92134716b08e0c2f706597fac7e31fb06168fe886ba9191ffafbe44e6fd82",
+    "commitEvidence": "b46c7f0be8b233382d92f4bfd3cc7d117948ace0279b0097aa7b47df1f38ef6d",
+    "createJob": "f68c8565f620309a76985d35c1f085261c21808946794258a77567f0f7aba461",
+    "fund": "9ab0e9301612af7b52ab94472752f1be5fe31af46ae6b27076b47dbd7d9f4500",
+    "reinstateQualification": "82535dd2f431d77271b2dff904fc98c513cf372362ba6c8176f4a098b3035a98",
+    "revokeQualification": "1ab5021320b335e9e6c66f5990447245cb001fa2b6d47bf706d0240e6d14f400",
+    "setBudget": "3666fa6a196cb1534db7632e6ea0ebcaf054575cff582b7040c1f113e3d37090",
+    "setPayoutReceiver": "f5483a0663f0ebfed8b86cbab54497cf363f9c6c5455ba858c0244b9b2625593",
+    "setQualification": "2a20aa9e493b42e2f5558369644fbb896d4a60c542ac1362e737839ad187f5d0",
+    "submit": "0cba7215ecab227e719d75f2a8b3dc38af56c1ab9da6ac039886ed4c23a65519"
+  }
 }

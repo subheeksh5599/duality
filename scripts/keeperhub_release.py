@@ -74,6 +74,41 @@ def kh(env: dict, method: str, path: str, body: dict | None = None, idem: str | 
             return e.code, {"raw": raw[:400]}
 
 
+def decoding_abi() -> str:
+    """The ABI to send as `abi`, so a refusal raised inside the hook decodes.
+
+    The target's ABI alone cannot name an error raised by a contract the target calls,
+    and the gate is exactly that. Measured against the hosted API on 2026-09-15, three
+    shapes: the core's ABI alone leaves the refusal hex, `errorAbis` carrying the hook's
+    errors ALSO leaves it hex, and this - the hook's errors appended to the core's ABI
+    in `abi` itself - decodes it, arguments included. So this is the shape that works
+    today, and `errorAbis` is attached alongside it for the day the hosted API honours
+    the field its own docs describe.
+    """
+    core = json.load(open(os.path.join(ART, "ERC8183.sol", "ERC8183.json"), encoding="utf-8"))["abi"]
+    return json.dumps(core + json.loads(gate_error_abis()[0]))
+
+
+def gate_error_abis() -> list[str]:
+    """The gate's own errors, as an extra ABI document for KeeperHub's decoder.
+
+    The gate is a hook, so a refusal is raised by a contract that is not the call
+    target, and the ABI that encodes a call is the target's own - which means the
+    reason code and the job id stay hex without this. `errorAbis` is the request
+    field that closes that, and it is decoding-only: it cannot change the calldata.
+
+    Returns errors only. The route refuses a document whose errors it cannot build,
+    so a full ABI would work but an errors-only one cannot be mistaken for one that
+    silently does nothing.
+    """
+    hook = json.load(open(os.path.join(ART, "DualityGateHook.sol", "DualityGateHook.json"),
+                          encoding="utf-8"))["abi"]
+    errors = [entry for entry in hook if entry.get("type") == "error"]
+    if not errors:
+        raise RuntimeError("the hook ABI declares no error, so errorAbis would be ignored")
+    return [json.dumps(errors)]
+
+
 class Chain:
     def __init__(self, env: dict):
         self.w3 = Web3(Web3.HTTPProvider(env["RPC_URL"]))
@@ -128,7 +163,7 @@ class Chain:
 def main() -> int:
     env = load_env(sys.argv[1] if len(sys.argv) > 1 else None)
     ch = Chain(env)
-    core_abi = json.dumps(Chain.abi("ERC8183.sol", "ERC8183"))
+    core_abi = decoding_abi()
     proof: dict = {"network": NETWORK, "keeperHubWallet": KH_WALLET,
                    "core": ch.dep["core"], "gateHook": ch.dep["gateHook"]}
 
