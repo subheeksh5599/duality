@@ -282,7 +282,7 @@ KeeperHub BROADCASTS the release
 
 This is worth dwelling on: KeeperHub's documented safe-first-write sequence is simulate, check `wouldRevert`, then broadcast. That is the same shape as DUALITY's thesis one layer down, and the gate is what makes `wouldRevert` informative rather than decorative, because the predicate behind it can fail after the approval it was made against.
 
-One gap found while building this is filed upstream as **[KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430)**: a revert raised inside a callee contract cannot be decoded, because the API accepts a single `abi` field, so a hook's custom error reaches the caller as raw hex. It was accepted, fixed by a merged pull request, and followed by a docs correction; the refusal in section 9 is recorded in exactly that raw form.
+One gap found while building this is filed upstream as **[KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430)**: a revert raised inside a callee contract cannot be decoded, because the API accepts a single `abi` field, so a hook's custom error reaches the caller as raw hex. It was accepted, the fix and its docs both merged (#2457, #2472), and the refusal in section 9 is recorded in exactly that raw form - because the hosted API does not read the new field yet. See section 9 for the measurement.
 
 ## 9. The ACP lane
 
@@ -310,24 +310,30 @@ What the chain holds, so none of it has to be taken on this repository's word:
 The run, live on Base Sepolia:
 
 ```text
-  createJob (evaluator = KeeperHub)              OK   cee4171b1489d639f2090235f18a906716345cb9a093e7d76fcbf2ef4aafc0f6
-   jobId 22, payoutReceiver aimed at the agent's own wallet
-  setPayoutReceiver(agent wallet)                OK   fbca905154412af98468ab3e1c2161b2e1e00eccdc80e927a11a645212a8c457
-  setBudget 1.00 USDC                            OK   5228c4329d14cd1b95842c52f940556e915bf1e26ffc51991b03bd66ad1820cb
-  fund 1.00 USDC                                 OK   cc2a262f1a8ffe055b03898bc709d38c1fa7bc7541989a9a4a95cba6f33cd0fe
-  setQualification(operator, QUALIFIED)          OK   c46265fa25336dda32d142f2e2c88e47ea1496cd923138498c2562acd8b4bd0e
-  submit deliverable                             OK   6721308996015d8345223a39613e517f3cc5e6103a662b3441fb27ae12fc01b8
-  commit evidence (agent-bound subject)          OK   1de4934fd47a22611e2ffcc8bc388563e686015ac4f888948c87d10bbf41e79c
-  approve                                        OK   514397389e61bfb523694ffdad05a7070d4d75300f1284dd673f9f79118c63f1
-  revoke qualification (the refusal beat)        OK   f45c10a377bb11b68443b5d17018b833124d34345dd4acebeed81a301ffb12dc
-   KeeperHub simulate -> HTTP 400 wouldRevert=True
-   decoded by us: ReleaseBlocked(uint256,bytes32) jobId 22 reason E_DISQUALIFIED
-  reinstate qualification                        OK   1f256285aa7d7ad15258a45f0b55974b4d4f172c733782be58c4dadeaa45e015
-   attempt 1: HTTP 200 wouldRevert=False
-   release -> execution 13swmn6n4j8ltp5fbfgrt, status completed, sponsored true
-   tx 0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c
-   agent USDC 22.06 -> 23.06
+  createJob (evaluator = KeeperHub)              OK   f68c8565f620309a76985d35c1f085261c21808946794258a77567f0f7aba461
+   jobId 31, payoutReceiver aimed at the agent's own wallet before funding
+  setPayoutReceiver(agent wallet)                OK   f5483a0663f0ebfed8b86cbab54497cf363f9c6c5455ba858c0244b9b2625593
+  setBudget 1.00 USDC                            OK   3666fa6a196cb1534db7632e6ea0ebcaf054575cff582b7040c1f113e3d37090
+  fund 1.00 USDC                                 OK   9ab0e9301612af7b52ab94472752f1be5fe31af46ae6b27076b47dbd7d9f4500
+  setQualification(operator, QUALIFIED)          OK   2a20aa9e493b42e2f5558369644fbb896d4a60c542ac1362e737839ad187f5d0
+  submit deliverable                             OK   0cba7215ecab227e719d75f2a8b3dc38af56c1ab9da6ac039886ed4c23a65519
+  commit evidence (agent-bound subject)          OK   b46c7f0be8b233382d92f4bfd3cc7d117948ace0279b0097aa7b47df1f38ef6d
+  approve                                        OK   07a92134716b08e0c2f706597fac7e31fb06168fe886ba9191ffafbe44e6fd82
+  revoke qualification (the refusal beat)        OK   1ab5021320b335e9e6c66f5990447245cb001fa2b6d47bf706d0240e6d14f400
+   KeeperHub simulate -> HTTP 400 wouldRevert=true  (attempt 1 of 1)
+   the request carried the gate's errors, so KeeperHub names the refusal itself:
+   ReleaseBlocked(31, 0x455f4449535155414c4946494544000000000000000000000000000000000000)
+   (that argument is the ASCII reason code: 0x455f4449535155414c4946494544 is E_DISQUALIFIED)
+  reinstate qualification                        OK   82535dd2f431d77271b2dff904fc98c513cf372362ba6c8176f4a098b3035a98
+   attempt 1: HTTP 200 wouldRevert=false, predicate OK
+   release -> execution hhj5r6n0q113qqtzde8pc, status completed, sponsored true
+   tx 0xcebb4c5528e794a6c7fcee4d50f159910a584730be2e77f073603d828d34e544
+   agent USDC 29.06 -> 30.06
 ```
+
+Every hash above is read out of `artifacts/acp-provider-job.json`, which the run writes
+itself, and the block is generated from that file rather than retyped - a retyped hash is
+how a wrong one gets published.
 
 Three things this lane states rather than hides:
 
@@ -339,11 +345,20 @@ Three things this lane states rather than hides:
 - **the reason the release was refused came from the counterparty's standing, not the
   deliverable's freshness.** Same predicate, same clauses: 6 and 7 are the qualification pair,
   and the reason code names which one fired.
-- **KeeperHub could not decode the gate's own error.** A revert raised inside a job's hook is
-  not in the ABI the request carries, so the refusal arrived as `unknown custom error` and the
-  run record decodes the selector itself (`0x5192a3c5` = `ReleaseBlocked`). That gap is filed
-  upstream as [KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430), which now
-  carries a merged fix and a docs follow-up.
+- **The refusal above is named by KeeperHub, and getting there took a measurement.** A revert
+  raised inside a job's hook is not in the ABI of the call target, so it reaches a caller as
+  hex. That gap is filed upstream as
+  [KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430), and the fix and its
+  docs both merged (#2457, #2472), adding an `errorAbis` request field. This lane attaches it
+  on every release call. The hosted API accepts it and ignores it: an empty document, a
+  document that is not an ABI at all, and five documents (over the documented cap of four) all
+  pass without the rejection the merged contract specifies, and a hook refusal stays hex with
+  `errorAbis` attached. What does work is the shape this project sends - the hook's errors
+  appended to the target's ABI in `abi` itself - which is why the block above reads
+  `ReleaseBlocked(...)` with its arguments instead of raw hex.
+  `scripts/errorabis_probe.py` measures both halves against the live API and writes
+  `artifacts/errorabis-probe.json`. "The fix merged" and "the fix answers" are different
+  claims, and only the second one is worth writing down.
 
 ## 10. Engineering decisions and the hard problems
 
@@ -369,7 +384,8 @@ Three things this lane states rather than hides:
 | `isReleasableAt` / `maxSkew` wired into the decision path | real: the service decides through `isReleasableAt` and reports the skew it measured; a clock further than the declared bound is refused with `E_CONDITION` |
 | landing page and control surface, reading only from those endpoints | real, `service/web/` |
 | a public deployment, reading the chain from the browser | real, https://duality-lilac.vercel.app |
-| an ACP-registered agent paid by the escrow | real: job 22, `payoutReceiver` is the agent's own wallet, `artifacts/acp-provider-job.json` |
+| an ACP-registered agent paid by the escrow | real: job 31, `payoutReceiver` is the agent's own wallet, `artifacts/acp-provider-job.json` |
+| the merged `errorAbis` field, consumed | attached on every release call; **the hosted API accepts and ignores it**, measured by `scripts/errorabis_probe.py` - the refusal is decoded by way of the gate's errors in `abi` instead |
 | the binding between the job and that agent | real: the evidence `subject` and `provenanceHash` commit two published files, and `scripts/acp_provider_job.py --verify` re-derives both against the registry |
 | clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
 | the agent signing its own submission | **not possible today**: the registry issues no key this repository can use, so an operator submits and the agent is paid (section 9) |
@@ -480,6 +496,9 @@ export DUALITY_ENV=.env
 .venv/bin/python scripts/keeperhub_release.py
 .venv/bin/python scripts/onchain_e2e.py
 
+# what the hosted execution API does with the merged errorAbis field
+.venv/bin/python scripts/errorabis_probe.py
+
 # the ACP lane: a job whose escrow pays an agent from the ACP registry
 .venv/bin/python scripts/acp_provider_job.py
 .venv/bin/python scripts/acp_provider_job.py --verify   # re-derive the binding against the chain
@@ -556,6 +575,7 @@ scripts/
   onchain_e2e.py                  the full sequence end to end
   acp_provider_job.py             the ACP lane, and its --verify re-derivation
   demo_prepare.py                 opens a job in the state the control surface expects
+  errorabis_probe.py              measures whether the hosted API reads errorAbis
 tests/
   test_predicate_live.py          the predicate, read from the deployment
   test_http_surface.py            the routes, the decisions and the asset allowlist

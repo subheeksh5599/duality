@@ -44,14 +44,20 @@ cannot verify the evidence's contents from the chain alone.
   invalid. The contract is correct and the harness was wrong; the lesson is that
   a pre-flight result is a statement about a block, and a release is a statement
   about a later one. The gate closing that gap is the argument for a gate at all.
-- **And it is not atomic in the other direction either.** On an earlier pass of the
-  ACP lane the revocation was reinstated and confirmed, our own read of the
-  predicate answered `OK`, and the simulation still reported `wouldRevert` against
-  a view that had not caught up; the broadcast then settled in transaction
-  `0x567668105959df92e729acae3144d65cc5428f7755c517528c5559fd37a1afd7`. A later
-  pass converged on the first attempt. Nobody should read a `wouldRevert` as the
-  last word in either direction, which is why the ACP run record keeps every
-  attempt rather than the last one.
+- **And it is not atomic in the other direction either.** The ACP lane has now shown
+  it both ways. On one pass the revocation was reinstated and confirmed, our own
+  read of the predicate answered `OK`, and the simulation still reported
+  `wouldRevert` (the broadcast settled normally in
+  `0x567668105959df92e729acae3144d65cc5428f7755c517528c5559fd37a1afd7`). On the next
+  pass it was the dangerous way round: the qualification had just been revoked, the
+  predicate said `E_DISQUALIFIED`, and the simulation reported the release as clean
+  - a caller trusting that one reading would have released against a disqualified
+  counterparty and been right only by luck, because the broadcast happened to follow
+  the reinstatement.
+- **So neither direction is sampled once.** Both the refusal beat and the clean beat
+  are polled, every attempt is kept in the run record, and the record says which
+  attempt converged. The predicate read is what the project acts on; a simulation is
+  a second opinion about a block that may already be stale, in either direction.
 - **Concurrent releases.** Two `complete()` calls in flight settle once because
   the core refuses the second on status. The registry's `settled` flag is a
   second guard behind it. Both were exercised.
@@ -125,6 +131,19 @@ error:
   an opaque id rather than a token id. The identity is committed in the evidence
   envelope and re-derivable from it; the core's own field is empty and the README
   says so.
+- **The execution rail's own merged fix is not live yet, and this project routes around
+  it.** KeeperHub added an `errorAbis` request field so a caller can hand the decoder the
+  ABI of a contract that is not the call target - which is what this gate is. The code is
+  merged and its docs are merged; the hosted API at `app.keeperhub.com` accepts the field
+  and ignores it, so a refusal raised inside the hook stays hex even with it attached. The
+  shape that does decode is the hook's errors appended to the target's ABI in `abi`, which
+  is what this project sends, and it is why the refusals in the live runs read
+  `ReleaseBlocked(jobId, reason)` with their arguments. `errorAbis` is attached alongside
+  it so nothing needs changing the day the field is honoured.
+  `scripts/errorabis_probe.py` measures both halves; `artifacts/errorabis-probe.json`
+  is the result. The general lesson is the one this repository keeps re-learning: "the fix
+  is merged" and "the fix answers" are different claims, and an integration that asserts
+  the first while depending on the second is one deployment away from being wrong.
 - **Not verified on mainnet.** Chain 84532 only.
 - **Contracts are not verified on Basescan.** The addresses are live and readable
   but the source is not published there.
