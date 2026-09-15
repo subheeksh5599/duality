@@ -249,10 +249,21 @@ def main() -> int:
     return 0 if ok else 1
 
 
-def _ev(eid, jid, version, content, bound, observed, ch):
-    return (eid, jid, keccak(text=f"evaluation-{version}"), keccak(text="subject"), keccak(text="quote"),
-            content, keccak(text=f"provenance-{version}"), version, observed, bound,
-            ch.addr["provider"], 1, 1, 0, ZERO32)
+def _ev(eid, jid, version, content, bound, observed, ch, *, subject=None, evidence_type=None,
+        evaluation=None, provenance=None):
+    """Build the Evidence tuple the registry stores.
+
+    The four optional arguments exist because the subject, the evidence type and
+    the provenance commitment are what an outside reader re-derives: the ACP lane
+    commits a real envelope hash there, where the quote-shaped jobs commit a
+    label. Every caller that does not pass them keeps the original behaviour.
+    """
+    return (eid, jid, evaluation if evaluation is not None else keccak(text=f"evaluation-{version}"),
+            subject if subject is not None else keccak(text="subject"),
+            evidence_type if evidence_type is not None else keccak(text="quote"),
+            content,
+            provenance if provenance is not None else keccak(text=f"provenance-{version}"),
+            version, observed, bound, ch.addr["provider"], 1, 1, 0, ZERO32)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,85 @@
+{
+  "agentId": "01a08682-7c76-73a8-b2c8-d2e6f42b05b3",
+  "agentUsdcAfter": 23.06,
+  "agentUsdcBefore": 22.06,
+  "agentWallet": "0x1776ebA1f2C74b141D0C337ffCdbB0E40d77876B",
+  "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+  "envelope": {
+    "binding": {
+      "agentId": "01a08682-7c76-73a8-b2c8-d2e6f42b05b3",
+      "agentWallet": "0x1776eba1f2c74b141d0c337ffcdbb0e40d77876b",
+      "chainId": 84532,
+      "network": "base-sepolia",
+      "registry": "https://app.virtuals.io/acp/agents/01a08682-7c76-73a8-b2c8-d2e6f42b05b3"
+    },
+    "job": {
+      "chainId": 84532,
+      "core": "0x86b951233E131d2dc0931aeB70ebc9Da17e998f6",
+      "id": 22
+    },
+    "kind": "acp-counterparty-observation",
+    "observation": {
+      "agentUsdc": "22.060000",
+      "deliverableHash": "0xd71f145259bf99f799fd172c48a03a4d96db015df1b5d9db0bb81f6b90c10161",
+      "freshnessBound": 3600,
+      "observedAt": 1789453022
+    },
+    "settlement": {
+      "payoutReceiver": "0x1776ebA1f2C74b141D0C337ffCdbB0E40d77876B",
+      "requested": "1.000000",
+      "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    }
+  },
+  "escrowUsdc": 1.0,
+  "evidenceId": "0x5239a6ca557fde45e4dcaa6474d96960b4e49d0260d490b7da250a32c69af07a",
+  "gateHook": "0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438",
+  "jobId": 22,
+  "keeperHubCleanSimulation": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "httpStatus": 200,
+        "wouldRevert": false
+      }
+    ],
+    "convergedOnAttempt": 1,
+    "note": "a simulate answered from a lagging node reads as a refusal; the predicate read and the broadcast disagree with it and are what this record goes by",
+    "predicateAfterReinstate": "OK"
+  },
+  "keeperHubHoldSimulation": {
+    "decodedByKeeperHub": false,
+    "decodedByUs": {
+      "error": "ReleaseBlocked(uint256,bytes32)",
+      "jobId": 22,
+      "reason": "E_DISQUALIFIED"
+    },
+    "httpStatus": 400,
+    "revertReason": "Simulation reverted: execution reverted (unknown custom error) (action=\"call\", data=\"0x5192a3c50000000000000000000000000000000000000000000000000000000000000016455f4449535155414c4946494544000000000000000000000000000000000000\", reason=null, transaction={ \"data\": \"0xd75bbdf300000000000000000000000000000000000000000000000000000000000000166c9e88cda0b93a4bdc550c294a2b9fa674fc4fb75630dc6597bae18a34dd573800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000\", \"from\": \"0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf\", \"to\": \"0x86b951233E131d2dc0931aeB70ebc9Da17e998f6\" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.17.0)",
+    "signer": "0x1776d4d751d97c85845bf54e6ce364cec62d4bbf",
+    "wouldRevert": true
+  },
+  "keeperHubRelease": {
+    "executionId": "13swmn6n4j8ltp5fbfgrt",
+    "httpStatus": 202,
+    "sponsored": true,
+    "status": "completed",
+    "transactionHash": "0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c",
+    "transactionLink": "https://sepolia.basescan.org/tx/0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c"
+  },
+  "network": "base-sepolia",
+  "predicateWhileDisqualified": "E_DISQUALIFIED",
+  "provenanceHash": "0x32492b2295ae53ed0146766ea1de6671f23d2f0f48d48d0ae8e0cab4c45f63ce",
+  "readback": {
+    "agentUsdcAfter": 23.06,
+    "evidenceProvenanceHash": "0x32492b2295ae53ed0146766ea1de6671f23d2f0f48d48d0ae8e0cab4c45f63ce",
+    "evidenceProvider": "0x20Fd7Bec60829230A1CFBe4cAf25A12Ab2E49aa9",
+    "evidenceSubject": "0x731337e1e83c63e6e030936e465d78d8dead3c077cb3f94c5a77371418f0676c",
+    "jobEvaluator": "0x1776D4D751d97c85845bF54e6CE364CEc62D4bBf",
+    "jobProvider": "0x20Fd7Bec60829230A1CFBe4cAf25A12Ab2E49aa9",
+    "jobStatus": 3,
+    "payoutReceiver": "0x1776ebA1f2C74b141D0C337ffCdbB0E40d77876B",
+    "providerAgentId": 0
+  },
+  "registry": "0x1EcAbF0650664cB16A416fFd558a4836e0f7bCC3",
+  "subject": "0x731337e1e83c63e6e030936e465d78d8dead3c077cb3f94c5a77371418f0676c"
+}
