@@ -70,6 +70,8 @@ REASON = {
     "E_SUBJECT": "the evidence does not belong to this job",
     "E_ALREADY_SETTLED": "this job has already settled",
     "E_CONDITION": "a job condition no longer holds",
+    "E_HASH_MISMATCH": "the deliverable does not match the committed content hash",
+    "E_INVALIDATED": "the evidence was invalidated: disputed or unrecoverable",
     "OK": "valid at release time",
 }
 DECISION = {
@@ -79,6 +81,9 @@ DECISION = {
     "E_PROVENANCE": "HOLD",
     "E_SUBJECT": "HOLD",
     "E_NOT_APPROVED": "HOLD",
+    "E_HASH_MISMATCH": "HOLD",
+    "E_INVALIDATED": "HOLD",
+    "E_CONDITION": "HOLD",
     "E_SUPERSEDED": "RECONCILIATION_REQUIRED",
     "E_ALREADY_SETTLED": "SETTLED",
     "OK": "RELEASE",
@@ -149,15 +154,27 @@ class State:
 
     # -------------------------------------------------------------- the gate
     def predicate(self, job_id: int, now: int | None = None, block_ts: int | None = None) -> dict:
+        """The service's decision, taken from the chain's own function.
+
+        `isReleasableAt` rather than `isReleasable`, because the registry carries a
+        maxSkew bound and a decision taken from a clock far away from chain time is
+        not one this service should act on. The bound was declared on-chain from the
+        first deployment and nothing read it until now; a service whose clock has
+        drifted refuses rather than guesses, and the refusal names clause 9's reason
+        code instead of reporting a state the chain never showed.
+        """
         now = now or int(time.time())
-        ok, reason = self.ch.reg.functions.isReleasable(job_id, now).call()
+        chain_ts = block_ts if block_ts is not None else self.ch.w3.eth.get_block("latest").timestamp
+        ok, reason = self.ch.reg.functions.isReleasableAt(job_id, now, chain_ts).call()
         code = bytes(reason).rstrip(b"\x00").decode(errors="replace") or "OK"
+        skew_bound = self.ch.reg.functions.maxSkew().call()
         return {"ok": bool(ok), "reasonCode": code,
                 "decision": DECISION.get(code, "HOLD"),
                 "explanation": REASON.get(code, "unrecognised reason code"),
                 "checkedAt": now,
-                "blockTimestamp": block_ts if block_ts is not None
-                                  else self.ch.w3.eth.get_block("latest").timestamp}
+                "skew": {"evaluator": now, "chain": chain_ts, "delta": abs(now - chain_ts),
+                         "bound": skew_bound},
+                "blockTimestamp": chain_ts}
 
     def job_view(self, job_id: int, block_ts: int | None = None) -> dict:
         j = self.ch.core.functions.getJob(job_id).call()
