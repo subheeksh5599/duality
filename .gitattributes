@@ -3,7 +3,9 @@ artifacts/* linguist-generated=true
 docs/* linguist-documentation=true
 
 # The control surface is hand-written and part of the product, not vendored.
-service/ui.html linguist-vendored=false
+service/web/*.html linguist-vendored=false
+service/web/*.js linguist-vendored=false
+service/web/*.css linguist-vendored=false
 
 # The vendored interfaces stay attributed to their upstream project.
 contracts/src/vendor/* linguist-vendored=true
