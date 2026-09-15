@@ -365,18 +365,18 @@ Three things this lane states rather than hides:
 | all four invalidation classes refused on live chain | real, `artifacts/invalidation-classes.json` |
 | KeeperHub executes the release, with its own simulation reporting the refusal | real, execution `qyn8k10j5mv6529c5cjtu` |
 | evaluator service: six reads and eight signing actions over the deployed contracts | real, `service/duality_service.py`, `tests/test_http_surface.py` |
+| a test suite for the service | real, 30 tests: `tests/` |
+| `isReleasableAt` / `maxSkew` wired into the decision path | real: the service decides through `isReleasableAt` and reports the skew it measured; a clock further than the declared bound is refused with `E_CONDITION` |
 | landing page and control surface, reading only from those endpoints | real, `service/web/` |
 | a public deployment, reading the chain from the browser | real, https://duality-lilac.vercel.app |
-| clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
 | an ACP-registered agent paid by the escrow | real: job 22, `payoutReceiver` is the agent's own wallet, `artifacts/acp-provider-job.json` |
 | the binding between the job and that agent | real: the evidence `subject` and `provenanceHash` commit two published files, and `scripts/acp_provider_job.py --verify` re-derives both against the registry |
+| clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
 | the agent signing its own submission | **not possible today**: the registry issues no key this repository can use, so an operator submits and the agent is paid (section 9) |
 | a completion from the agent's own inference endpoint | **not exercised**: it answered HTTP 402 insufficient credits when this lane was built, so nothing here claims one |
 | the job's ERC-8004 agent-id slot | **0**: the registry issues an opaque id rather than a token id, so the identity is committed in the evidence envelope instead |
 | source verification on Basescan | **pending** |
 | mainnet | **not attempted**, chain 84532 only |
-| a test suite for the service | real, 30 tests: `tests/` |
-| `isReleasableAt` / `maxSkew` wired into the decision path | real: the service decides through `isReleasableAt` and reports the skew it measured; a clock further than the declared bound is refused with `E_CONDITION` |
 
 ## 12. Tests
 
