@@ -125,9 +125,15 @@ expiry.
       9  jobConditionsHold(job.id, now)
      10  !settled(job.id)
 
-Every one of the ten clauses is machine-checkable. Clause 3 and 4 together are
-what stop a stale approval from releasing funds: approval binds an evidenceId,
-and the current version must still be that evidence.
+Clause 3 and 4 together are what stop a stale approval from releasing funds:
+approval binds an evidenceId, and the current version must still be that evidence.
+
+Clause 8 is specified here and is **not enforced** by the deployed predicate: the
+commitment is stored so the envelope stays auditable, and no branch reads it. Clause
+9 is delegated to an external oracle, and this deployment ships none, so it is
+vacuously true. Of the ten clauses, `EvidenceRegistry.isReleasable` enforces
+2,3,4,5,6,7 and 10; clause 1 is enforced by ERC-8183's own `complete()`. What is
+enforced is enumerated in `docs/LIMITATIONS.md`, section 7.
 
 ## 7. Decision
 
@@ -139,7 +145,7 @@ and the current version must still be that evidence.
 | clause 5 fails | HOLD | E_STALE |
 | clause 4 fails (strictly newer exists) | RECONCILIATION_REQUIRED | E_SUPERSEDED |
 | clause 6 or 7 fails | HOLD | E_DISQUALIFIED |
-| clause 8 fails | HOLD | E_PROVENANCE |
+| clause 8 fails | HOLD | `E_PROVENANCE` (specified; not enforced by this deployment, see section 6) |
 | clause 2, 3 or 9 fails | HOLD | E_SUBJECT |
 | clause 1 fails | HOLD | E_NOT_APPROVED |
 | clause 10 fails | (no decision) | E_ALREADY_SETTLED |

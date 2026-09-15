@@ -34,6 +34,7 @@ An ERC-8183 release gate. The standard proves the work at evaluation time. DUALI
 - [6. Safety: claim to mechanism](#6-safety-claim-to-mechanism)
 - [7. How it uses Base](#7-how-it-uses-base)
 - [8. How it uses KeeperHub](#8-how-it-uses-keeperhub)
+- [9. The ACP lane](#9-the-acp-lane)
 - [9. Engineering decisions and the hard problems](#9-engineering-decisions-and-the-hard-problems)
 - [10. Real vs pending](#10-real-vs-pending)
 - [11. Tests](#11-tests)
@@ -118,12 +119,17 @@ RELEASE(job, ev, now)  iff
    5  now <= ev.observedAt + ev.freshnessBound            inclusive at the boundary
    6  qualification at observation == QUALIFIED
    7  qualification now == QUALIFIED
-   8  provenance hash matches the committed one
+   8  provenance hash matches the committed one         NOT ENFORCED, see section 11
    9  job conditions hold                                  external oracle, optional
   10  the job has not already settled
 ```
 
 Clauses 3 and 4 together are what stop a stale approval from releasing money: an approval binds one evidence id, and that id must still be the current version.
+
+Clause 1 is enforced by ERC-8183's own `complete()`; clause 9 is delegated to an
+oracle this deployment does not ship. The clauses the contract actually reads are
+2, 3, 4, 5, 6, 7 and 10 - so clause 8 is a commitment this project records and does
+not yet enforce, and section 11 says so in the same words.
 
 Clause order is part of the semantics. The first failure is the reason reported, which is why a job that is both superseded and disqualified answers `E_SUPERSEDED`.
 
@@ -137,6 +143,9 @@ Clause order is part of the semantics. The first failure is the reason reported,
 | `E_NOT_APPROVED` | `HOLD` | no approval bound to the job |
 | `E_PROVENANCE` | `HOLD` | provenance commitment mismatch |
 | `E_ALREADY_SETTLED` | `SETTLED` | already paid |
+| `E_CONDITION` | `HOLD` | the checker's clock is outside the declared skew bound, so no decision is taken |
+| `E_HASH_MISMATCH` | `HOLD` | the deliverable does not match the committed content hash |
+| `E_INVALIDATED` | `HOLD` | the evidence was invalidated: disputed or unrecoverable |
 
 ## 3. The gate is not advisory
 
@@ -273,9 +282,70 @@ KeeperHub BROADCASTS the release
 
 This is worth dwelling on: KeeperHub's documented safe-first-write sequence is simulate, check `wouldRevert`, then broadcast. That is the same shape as DUALITY's thesis one layer down, and the gate is what makes `wouldRevert` informative rather than decorative, because the predicate behind it can fail after the approval it was made against.
 
-One gap found while building this is filed upstream as **[KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430)**: a revert raised inside a callee contract cannot be decoded, because the API accepts a single `abi` field, so a hook's custom error reaches the caller as raw hex.
+One gap found while building this is filed upstream as **[KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430)**: a revert raised inside a callee contract cannot be decoded, because the API accepts a single `abi` field, so a hook's custom error reaches the caller as raw hex. It was accepted, fixed by a merged pull request, and followed by a docs correction; the refusal in section 9 is recorded in exactly that raw form.
 
-## 9. Engineering decisions and the hard problems
+## 9. The ACP lane
+
+Every other lane here settles against evidence about a **deliverable**. This one settles
+against evidence about a **counterparty**: the provider side of the job is an agent that
+exists in the ACP registry, and the escrow pays that agent's own wallet rather than the
+operator that submitted on its behalf.
+
+```text
+client     createJob(provider = operator, evaluator = KeeperHub's wallet, hook = the gate)
+provider   setPayoutReceiver(agent wallet)   <- the money is aimed at the agent before funding
+provider   setBudget        client   fund
+provider   submit(deliverable)
+             evidence subject     = keccak(canonical(agent binding))
+             evidence provenance  = keccak(canonical(observation envelope))
+evaluator  KeeperHub complete()  -> the gate re-reads the predicate and refuses, or pays
+```
+
+What the chain holds, so none of it has to be taken on this repository's word:
+
+- the job's `payoutReceiver` is the agent's wallet, read back from the core in `artifacts/acp-provider-job.json`
+- `subject` and `provenanceHash` are commitments to two published files - `artifacts/acp-agent-binding.json` and the envelope inside the run record
+- `scripts/acp_provider_job.py --verify` re-hashes both files and compares the result against the deployed registry, so the binding is checkable without running anything that produced it
+
+The run, live on Base Sepolia:
+
+```text
+  createJob (evaluator = KeeperHub)              OK   cee4171b1489d639f2090235f18a906716345cb9a093e7d76fcbf2ef4aafc0f6
+   jobId 22, payoutReceiver aimed at the agent's own wallet
+  setPayoutReceiver(agent wallet)                OK   fbca905154412af98468ab3e1c2161b2e1e00eccdc80e927a11a645212a8c457
+  setBudget 1.00 USDC                            OK   5228c4329d14cd1b95842c52f940556e915bf1e26ffc51991b03bd66ad1820cb
+  fund 1.00 USDC                                 OK   cc2a262f1a8ffe055b03898bc709d38c1fa7bc7541989a9a4a95cba6f33cd0fe
+  setQualification(operator, QUALIFIED)          OK   c46265fa25336dda32d142f2e2c88e47ea1496cd923138498c2562acd8b4bd0e
+  submit deliverable                             OK   6721308996015d8345223a39613e517f3cc5e6103a662b3441fb27ae12fc01b8
+  commit evidence (agent-bound subject)          OK   1de4934fd47a22611e2ffcc8bc388563e686015ac4f888948c87d10bbf41e79c
+  approve                                        OK   514397389e61bfb523694ffdad05a7070d4d75300f1284dd673f9f79118c63f1
+  revoke qualification (the refusal beat)        OK   f45c10a377bb11b68443b5d17018b833124d34345dd4acebeed81a301ffb12dc
+   KeeperHub simulate -> HTTP 400 wouldRevert=True
+   decoded by us: ReleaseBlocked(uint256,bytes32) jobId 22 reason E_DISQUALIFIED
+  reinstate qualification                        OK   1f256285aa7d7ad15258a45f0b55974b4d4f172c733782be58c4dadeaa45e015
+   attempt 1: HTTP 200 wouldRevert=False
+   release -> execution 13swmn6n4j8ltp5fbfgrt, status completed, sponsored true
+   tx 0x5dc8bb491fa2c9e07075beaa5bc9a6721b674e3825b1b7105d5ea9567d331d3c
+   agent USDC 22.06 -> 23.06
+```
+
+Three things this lane states rather than hides:
+
+- **the operator submits, the agent is paid.** The registered agent holds no signing key this
+  repository can use, so the submission comes from an operator address while the escrow's
+  `payoutReceiver` is the agent's wallet. The gate does not care who typed the deliverable: it
+  decides whether the agent may be paid. An operator that submits against a disqualified
+  counterparty is refused exactly like a provider that submits stale evidence.
+- **the reason the release was refused came from the counterparty's standing, not the
+  deliverable's freshness.** Same predicate, same clauses: 6 and 7 are the qualification pair,
+  and the reason code names which one fired.
+- **KeeperHub could not decode the gate's own error.** A revert raised inside a job's hook is
+  not in the ABI the request carries, so the refusal arrived as `unknown custom error` and the
+  run record decodes the selector itself (`0x5192a3c5` = `ReleaseBlocked`). That gap is filed
+  upstream as [KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430), which now
+  carries a merged fix and a docs follow-up.
+
+## 10. Engineering decisions and the hard problems
 
 **The predicate lives on-chain and is called off-chain.** The alternative, a service that decides and a contract that enforces, guarantees eventual drift. Calling the contract from the service removes the class of bug rather than testing for it.
 
@@ -285,26 +355,30 @@ One gap found while building this is filed upstream as **[KeeperHub#2430](https:
 
 **Known limits of the hooks.** `maxSkew` and `isReleasableAt` are implemented so an off-chain decision taken far from chain time can be refused, and nothing calls them yet. Named here rather than left as a claim.
 
-## 10. Real vs pending
+## 11. Real vs pending
 
 | | status |
 |---|---|
 | ERC-8183 core, registry and gate deployed on Base Sepolia | real, addresses above |
-| 10 contract tests against the real core | real, output in section 11 |
+| 10 contract tests against the real core | real, output in section 12 |
 | release blocked, then released, then blocked again | real, tx hashes in section 4 |
 | all four invalidation classes refused on live chain | real, `artifacts/invalidation-classes.json` |
 | KeeperHub executes the release, with its own simulation reporting the refusal | real, execution `qyn8k10j5mv6529c5cjtu` |
-| evaluator service with nine endpoints | real, `service/duality_service.py` |
+| evaluator service: six reads and eight signing actions over the deployed contracts | real, `service/duality_service.py`, `tests/test_http_surface.py` |
 | landing page and control surface, reading only from those endpoints | real, `service/web/` |
 | a public deployment, reading the chain from the browser | real, https://duality-lilac.vercel.app |
 | clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it. The doc comment used to claim it; `docs/LIMITATIONS.md` records the gap |
-| a live ACP job | **pending**: the jobs are ERC-8183, the standard whose escrow model ACP implements |
+| an ACP-registered agent paid by the escrow | real: job 22, `payoutReceiver` is the agent's own wallet, `artifacts/acp-provider-job.json` |
+| the binding between the job and that agent | real: the evidence `subject` and `provenanceHash` commit two published files, and `scripts/acp_provider_job.py --verify` re-derives both against the registry |
+| the agent signing its own submission | **not possible today**: the registry issues no key this repository can use, so an operator submits and the agent is paid (section 9) |
+| a completion from the agent's own inference endpoint | **not exercised**: it answered HTTP 402 insufficient credits when this lane was built, so nothing here claims one |
+| the job's ERC-8004 agent-id slot | **0**: the registry issues an opaque id rather than a token id, so the identity is committed in the evidence envelope instead |
 | source verification on Basescan | **pending** |
 | mainnet | **not attempted**, chain 84532 only |
-| a test suite for the service | **pending**, the contract suite is complete |
-| `isReleasableAt` / `maxSkew` wired into the decision path | **pending**, see section 9 |
+| a test suite for the service | real, 30 tests: `tests/` |
+| `isReleasableAt` / `maxSkew` wired into the decision path | real: the service decides through `isReleasableAt` and reports the skew it measured; a clock further than the declared bound is refused with `E_CONDITION` |
 
-## 11. Tests
+## 12. Tests
 
 ```bash
 cd contracts && forge test --match-path 'test/DualityGate.t.sol'
@@ -327,7 +401,26 @@ Suite result: ok. 10 passed; 0 failed; 0 skipped
 
 These run against the upstream ERC-8183 core through a UUPS proxy with a whitelisted hook and a real mock USDC, not against a stub. `test_gateCannotBlockRefund` is the one that matters most: it asserts the gate cannot trap a client's funds.
 
-## 12. The web surfaces
+The service has its own suite, and it reads the deployment rather than a mock:
+
+```bash
+.venv/bin/python -m pytest
+```
+
+```text
+30 passed in 79.74s
+```
+
+| file | tests | what it holds |
+|---|---|---|
+| `tests/test_predicate_live.py` | 11 | the predicate answers as documented for settled, unapproved and recorded-invalidation jobs; the clock bound fires one second past `maxSkew` and not at it |
+| `tests/test_http_surface.py` | 9 | the reads, the decision on `/jobs/{id}`, and the asset allowlist (the traversal requests are sent by hand, because `urllib` normalises `/../` away and would never exercise the guard) |
+| `tests/test_reason_codes.py` | 3 | every reason constant is read off the deployed registry and must have wording and a decision in the service, so a code added on-chain fails the suite until it is named |
+| `tests/test_acp_binding.py` | 7 | the published ACP artifacts re-derive to the values the registry holds, and the escrow paid the wallet the binding names |
+
+Two of these found real defects while being written: `E_HASH_MISMATCH` and `E_INVALIDATED` were both returnable by the registry and neither was named in the service, so either would have reached a reader as "unrecognised reason code". Both now have wording and a decision.
+
+## 13. The web surfaces
 
 Both are served by the same process, read only from the endpoints in section 5,
 and have no build step, no bundler and no mock data.
@@ -363,7 +456,7 @@ exactly like a contract revert: both are `CALL_EXCEPTION`, and the throttled one
 simply carries no revert data. The client distinguishes them and says which
 happened instead of blaming the contract.
 
-## 13. Run locally
+## 14. Run locally
 
 ```bash
 git clone https://github.com/subheeksh5599/duality && cd duality
@@ -376,7 +469,7 @@ forge build && forge test
 
 # python side
 cd ..
-python3 -m venv .venv && .venv/bin/pip install web3
+python3 -m venv .venv && .venv/bin/pip install web3 pytest
 
 # configuration comes from the environment, never from a path in this repo
 cp .env.example .env && $EDITOR .env
@@ -387,13 +480,21 @@ export DUALITY_ENV=.env
 .venv/bin/python scripts/keeperhub_release.py
 .venv/bin/python scripts/onchain_e2e.py
 
+# the ACP lane: a job whose escrow pays an agent from the ACP registry
+.venv/bin/python scripts/acp_provider_job.py
+.venv/bin/python scripts/acp_provider_job.py --verify   # re-derive the binding against the chain
+.venv/bin/python scripts/acp_provider_job.py --resume <jobId>   # a lane that stopped mid-flight
+
+# the service suite
+.venv/bin/python -m pytest
+
 # the service and its control surface
 .venv/bin/python service/duality_service.py --port 8787
 #   http://127.0.0.1:8787/           the landing page
 #   http://127.0.0.1:8787/dashboard  the control surface, which drives the actions below
 ```
 
-## 14. Configuration
+## 15. Configuration
 
 Every script reads `$DUALITY_ENV`, else `./.env`, else the process environment. Nothing reads a path outside the project.
 
@@ -405,10 +506,15 @@ Every script reads `$DUALITY_ENV`, else `./.env`, else the process environment. 
 | `PROVIDER`, `PROVIDER_KEY` | the provider that prices, delivers and is paid |
 | `JUDGE`, `JUDGE_KEY` | the evaluator, used by the direct scripts |
 | `KH_API_KEY` | KeeperHub direct-execution key, taken from the environment |
+| `ACP_AGENT_ID` | the registered agent the ACP lane pays. Required by that lane and nothing else |
+| `ACP_AGENT_WALLET` | that agent's wallet; the lane points the escrow's `payoutReceiver` at it |
+| `ACP_AGENT_REGISTRY` | where the registration resolves, recorded in the binding artifact |
+| `ACP_AGENT_TOKEN_ID` | optional, if the registry issues a numeric agent id rather than an opaque one |
+| `ACP_JOB_USDC` | optional escrow size for the ACP lane, 1 by default |
 
 Three distinct addresses are required: the core rejects a job whose client, provider and evaluator are not distinct. No key is in this repository.
 
-## 15. Deploy
+## 16. Deploy
 
 ```bash
 cd contracts
@@ -419,7 +525,7 @@ forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --broadcast -vv
 
 The script whitelists the hook and allowlists the payment token in the same run, because `createJob` refuses a job whose hook is not whitelisted.
 
-## 16. Project layout
+## 17. Project layout
 
 ```text
 contracts/
@@ -429,7 +535,7 @@ contracts/
   test/DualityGate.t.sol          10 tests against the real core
   script/Deploy.s.sol             deploys and wires the stack
 service/
-  duality_service.py              nine endpoints over the deployed contracts
+  duality_service.py              the reads and the eight signing actions
   web/index.html                  the public page, served at /
   web/dashboard.html              the control surface, served at /dashboard
   web/duality.css                 the design system both pages share
@@ -444,16 +550,24 @@ scripts/
   prove_invalidation_classes.py   all four classes, live
   keeperhub_release.py            the release, executed by KeeperHub
   onchain_e2e.py                  the full sequence end to end
+  acp_provider_job.py             the ACP lane, and its --verify re-derivation
+tests/
+  test_predicate_live.py          the predicate, read from the deployment
+  test_http_surface.py            the routes, the decisions and the asset allowlist
+  test_reason_codes.py            every registry reason code must be named by the service
+  test_acp_binding.py             the ACP artifacts re-derived against the chain
 docs/
   PROTOCOL-SPEC.md                definitions, predicate, state machine, trust
   ARCHITECTURE.md                 components, data flow, clause ordering
   PRIOR-ART.md                    what exists, and the exact boundary
   LIMITATIONS.md                  limits, trust model, threat model
 artifacts/                        run records: transactions, refusals, audit log
+  acp-agent-binding.json          the counterparty the ACP lane binds, and its registry id
+  acp-provider-job.json           that lane's run, its envelope and the chain readback
 deployments/base-sepolia.json     the live deployment
 ```
 
-## 17. Tech stack
+## 18. Tech stack
 
 | layer | |
 |---|---|
@@ -463,19 +577,22 @@ deployments/base-sepolia.json     the live deployment
 | network | Base Sepolia (84532), USDC escrow |
 | execution rail | KeeperHub direct execution API |
 
-## 18. Prior art
+## 19. Prior art
 
 Escrow, evaluator agents, disputes, attestations, freshness gates for trading, capability revocation and job expiry all exist, and `docs/PRIOR-ART.md` credits each by name.
 
 What was not found, after searching, is a system that refuses to release funds because the evidence behind an approval has expired, been superseded, or lost its qualification between approval and payment. That interval is what this project is.
 
-## 19. Roadmap
+## 20. Roadmap
 
-- wire `isReleasableAt` and `maxSkew` into the service's decision path, so the skew tolerance is enforced rather than declared
 - a scheduler, so a lapsed window holds without being asked
-- ACP as a live integration, not only the standard the gate is built on
-- source verification and a test suite for the service
+- enforce clause 8 (provenance) in the predicate rather than recording the commitment
+  unread, which needs a registry redeploy because the deployed one is not a proxy
+- source verification on Basescan, which needs an explorer API key this repository does
+  not hold
 - generalise the evidence adapter so a second job class needs no contract change
+- give the ACP lane a signing counterparty, so the agent submits for itself instead of
+  an operator submitting and the agent being paid
 
 ## License
 

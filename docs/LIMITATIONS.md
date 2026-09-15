@@ -23,6 +23,7 @@ Anyone who reads a release refusal as a correctness proof has read it wrong.
 | the deployer key `0x087e...A1dA` is admin, qualifier and committer | one key for the testnet demo | whoever holds it can set qualification and commit evidence, which is enough to make a release pass. In production these are three roles and the qualifier should not be the committer |
 | the evaluator's clock | our process, with a 120 second skew tolerance recorded on the registry | off-chain freshness decisions use our clock; the hook uses `block.timestamp`. `isReleasableAt` refuses if the two differ by more than the tolerance |
 | the qualification registry's controller | the qualifier key | qualification is asserted, not proven. DUALITY does not define who may qualify a provider |
+| the operator that submits for the ACP agent | the provider key | the agent the ACP lane pays holds no signing key this repository can use, so an operator submits on its behalf while the escrow's `payoutReceiver` is the agent's wallet. The binding between the job and the agent is committed in the evidence (`subject`, `provenanceHash`) and re-derivable from the published artifacts, but the agent's consent to that arrangement is off-chain and not proven by the chain |
 
 ## 3. What is off-chain
 
@@ -43,6 +44,14 @@ cannot verify the evidence's contents from the chain alone.
   invalid. The contract is correct and the harness was wrong; the lesson is that
   a pre-flight result is a statement about a block, and a release is a statement
   about a later one. The gate closing that gap is the argument for a gate at all.
+- **And it is not atomic in the other direction either.** On an earlier pass of the
+  ACP lane the revocation was reinstated and confirmed, our own read of the
+  predicate answered `OK`, and the simulation still reported `wouldRevert` against
+  a view that had not caught up; the broadcast then settled in transaction
+  `0x567668105959df92e729acae3144d65cc5428f7755c517528c5559fd37a1afd7`. A later
+  pass converged on the first attempt. Nobody should read a `wouldRevert` as the
+  last word in either direction, which is why the ACP run record keeps every
+  attempt rather than the last one.
 - **Concurrent releases.** Two `complete()` calls in flight settle once because
   the core refuses the second on status. The registry's `settled` flag is a
   second guard behind it. Both were exercised.
@@ -97,9 +106,25 @@ error:
 - **No scheduler.** The service reacts to requests. Nothing watches evidence
   windows and holds or reconciles on its own, so a job whose window lapses sits
   in `E_STALE` until someone asks.
-- **No ACP adapter.** The jobs are ERC-8183 on Base Sepolia. The ACP agent
-  identity exists but is not wired into this flow, so the ACP terminology in the
-  README describes the standard the gate is built on, not a live ACP job.
+- **The ACP lane pays an agent; it does not prove the agent's consent.** Job 22's
+  escrow pays the wallet an ACP-registered agent is registered to, and the binding
+  between that wallet and that agent is committed on-chain as the evidence
+  `subject` and `provenanceHash`. What is *not* proven is the agent's agreement:
+  the registry issues no signing key this repository can use, so an operator
+  submits the deliverable and the agent is paid. A production version needs the
+  agent to sign for itself, which means an agent-side signer or an authorisation
+  wrapper - see `contracts/lib/base-contracts/contracts/ERC8183WithAuthorization.sol`
+  upstream, which this deployment does not use.
+- **The agent's own compute was not exercised.** Its inference endpoint answered
+  HTTP 402 (insufficient credits) when this lane was written, so no part of this
+  repository claims a completion produced by the agent, and the deliverable here
+  is an observation record rather than generated work. This is the same rule the
+  rest of the project follows: a stack that was not exercised is not claimed.
+- **The job's ERC-8004 agent-id slot holds 0.** `createJob` accepts an optional
+  numeric agent identity and this lane passes none, because the ACP registry issues
+  an opaque id rather than a token id. The identity is committed in the evidence
+  envelope and re-derivable from it; the core's own field is empty and the README
+  says so.
 - **Not verified on mainnet.** Chain 84532 only.
 - **Contracts are not verified on Basescan.** The addresses are live and readable
   but the source is not published there.
