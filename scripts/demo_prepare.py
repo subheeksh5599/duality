@@ -4,7 +4,7 @@
 The recorded demo is clicks on a page: nothing in it should need a shell. So the
 job the control surface drives is opened here, before recording, and left in the
 state the first click expects - funded, submitted, qualification set, and one
-observation approved with an hour of freshness.
+observation approved with a day of freshness.
 
 The job pays the ACP agent's wallet when it is configured, so the release the
 recording ends on is the same counterparty the ACP lane settles against.
@@ -25,7 +25,9 @@ import keeperhub_release as K  # noqa: E402
 from eth_utils import keccak  # noqa: E402
 from web3 import Web3  # noqa: E402
 
-FRESHNESS_BOUND = 3600
+# A day, not an hour: the job is opened before a recording session, and a first click
+# that reads E_STALE because the session started late is a trap, not a finding.
+FRESHNESS_BOUND = 86400
 BUDGET_USDC = 1
 
 
@@ -69,7 +71,7 @@ def main() -> int:
     ch.send(ch.core.functions.submit(jid, keccak(text=f"deliverable-{jid}-{int(time.time())}"), b""),
             "provider", "submit deliverable")
 
-    print("4. one observation, committed and approved with an hour of freshness")
+    print("4. one observation, committed and approved with a day of freshness")
     observed_at = int(time.time())
     content = keccak(text=f"observation-{jid}-v1")
     eid = keccak(ch.w3.codec.encode(["uint256", "address", "bytes32", "uint64"],
