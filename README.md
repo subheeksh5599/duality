@@ -488,6 +488,10 @@ export DUALITY_ENV=.env
 # the service suite
 .venv/bin/python -m pytest
 
+# before driving the control surface, open a job for it to act on, so a recording
+# or a walkthrough needs no shell: it prints the job id and the verdict it starts in
+.venv/bin/python scripts/demo_prepare.py
+
 # the service and its control surface
 .venv/bin/python service/duality_service.py --port 8787
 #   http://127.0.0.1:8787/           the landing page
@@ -551,6 +555,7 @@ scripts/
   keeperhub_release.py            the release, executed by KeeperHub
   onchain_e2e.py                  the full sequence end to end
   acp_provider_job.py             the ACP lane, and its --verify re-derivation
+  demo_prepare.py                 opens a job in the state the control surface expects
 tests/
   test_predicate_live.py          the predicate, read from the deployment
   test_http_surface.py            the routes, the decisions and the asset allowlist
