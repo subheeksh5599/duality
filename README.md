@@ -300,33 +300,47 @@ One gap found while building this is filed upstream as **[KeeperHub#2430](https:
 ### What the integration produced upstream
 
 Building the release gate is what exposed the gap above, and the fixes are merged rather
-than filed and abandoned. Every one below landed in September, newest first.
+than filed and abandoned. Every one below landed in September. They are split, because a
+reader weighing this work should not have to count documentation commits as features.
+
+**Nine functional changes.**
+
+| PR | merged | lines | what it changed |
+|---|---|---|---|
+| [#2477](https://github.com/KeeperHub/keeperhub/pull/2477) | 2026-09-17 | `+20/-3` | a long step label wraps on a phone instead of setting the table width |
+| [#2404](https://github.com/KeeperHub/keeperhub/pull/2404) | 2026-09-16 | `+1176/-12` | declared Manual input is collected before an editor run |
+| [#2302](https://github.com/KeeperHub/keeperhub/pull/2302) | 2026-09-15 | `+632/-102` | monitoring is reachable and readable on a phone |
+| [#2457](https://github.com/KeeperHub/keeperhub/pull/2457) | 2026-09-15 | `+875/-19` | a revert raised in a callee is decoded from extra error ABIs |
+| [#2387](https://github.com/KeeperHub/keeperhub/pull/2387) | 2026-09-15 | `+1671/-0` | approvals are checked against the Revoke.cash exploit list |
+| [#2386](https://github.com/KeeperHub/keeperhub/pull/2386) | 2026-09-10 | `+152/-33` | a sponsored send is never reported pre-broadcast when its outcome is unknown |
+| [#2362](https://github.com/KeeperHub/keeperhub/pull/2362) | 2026-09-09 | `+288/-3` | `requiredPlan` is disclosed on action schemas |
+| [#2297](https://github.com/KeeperHub/keeperhub/pull/2297) | 2026-09-09 | `+354/-94` | `kh_` API keys are accepted on the session-only analytics routes |
+| [#2300](https://github.com/KeeperHub/keeperhub/pull/2300) | 2026-09-04 | `+886/-22` | a per-chain token bucket replaces a fixed dispatch jitter |
+
+**#2457** came straight out of this integration: it makes a revert raised inside a callee
+decodable, which is the failure this project hit first, and its documentation counterpart is
+**#2472** below. The rest came from the same reading of the surface - API keys that only worked on
+session routes, a sponsored send reported before it was broadcast, a monitoring page that
+was unusable on a phone.
+
+**Eight documentation and housekeeping changes.**
 
 | PR | merged | what it changed |
 |---|---|---|
-| [#2477](https://github.com/KeeperHub/keeperhub/pull/2477) | 2026-09-17 | fix: #2295 let the step label wrap on a phone instead of setting the table width |
-| [#2404](https://github.com/KeeperHub/keeperhub/pull/2404) | 2026-09-16 | feat(workflow): #2057 collect declared Manual input before an editor run |
-| [#2302](https://github.com/KeeperHub/keeperhub/pull/2302) | 2026-09-15 | feat(analytics): make monitoring reachable and readable on mobile |
-| [#2472](https://github.com/KeeperHub/keeperhub/pull/2472) | 2026-09-15 | docs: point an undecoded revert at errorAbis |
-| [#2457](https://github.com/KeeperHub/keeperhub/pull/2457) | 2026-09-15 | feat(execute): #2430 decode a revert raised in a callee from extra error ABIs |
-| [#2387](https://github.com/KeeperHub/keeperhub/pull/2387) | 2026-09-15 | feat(web3): #2375 check approvals against the Revoke.cash exploit list |
-| [#2446](https://github.com/KeeperHub/keeperhub/pull/2446) | 2026-09-14 | docs: #2408 document the failOnError toggle on Write Contract |
-| [#2409](https://github.com/KeeperHub/keeperhub/pull/2409) | 2026-09-14 | chore: correct stale keeperhub/ paths in messages that tell a reader where to look |
-| [#2385](https://github.com/KeeperHub/keeperhub/pull/2385) | 2026-09-14 | docs: #2380 fix stale README documentation links and keeperhub/ paths |
-| [#2386](https://github.com/KeeperHub/keeperhub/pull/2386) | 2026-09-10 | fix: #2374 never report a sponsored send as pre-broadcast when its outcome is unknown |
-| [#2362](https://github.com/KeeperHub/keeperhub/pull/2362) | 2026-09-09 | feat(actions): disclose requiredPlan on action schemas and document /api/features |
-| [#2297](https://github.com/KeeperHub/keeperhub/pull/2297) | 2026-09-09 | fix(analytics): accept kh_ API keys on the four session-only analytics routes |
-| [#2356](https://github.com/KeeperHub/keeperhub/pull/2356) | 2026-09-08 | docs: point agent/API consumers at wallet and address discovery (#2055) |
-| [#2355](https://github.com/KeeperHub/keeperhub/pull/2355) | 2026-09-08 | docs: protocol writes return a 202 executionId envelope; drop fabricated id prefixes |
-| [#2298](https://github.com/KeeperHub/keeperhub/pull/2298) | 2026-09-08 | docs: add ID glossary and cross-link headless onboarding with the verified-transaction guide |
-| [#2301](https://github.com/KeeperHub/keeperhub/pull/2301) | 2026-09-08 | docs: scope the simulate preflight to tools that support it |
-| [#2300](https://github.com/KeeperHub/keeperhub/pull/2300) | 2026-09-04 | fix(event-tracker): replace fixed 0-10s dispatch jitter with a per-chain token bucket |
+| [#2472](https://github.com/KeeperHub/keeperhub/pull/2472) | 2026-09-15 | point an undecoded revert at `errorAbis` |
+| [#2446](https://github.com/KeeperHub/keeperhub/pull/2446) | 2026-09-14 | document the `failOnError` toggle on Write Contract |
+| [#2409](https://github.com/KeeperHub/keeperhub/pull/2409) | 2026-09-14 | correct stale paths in messages that tell a reader where to look |
+| [#2385](https://github.com/KeeperHub/keeperhub/pull/2385) | 2026-09-14 | fix stale README links and paths |
+| [#2356](https://github.com/KeeperHub/keeperhub/pull/2356) | 2026-09-08 | point agent and API consumers at wallet and address discovery |
+| [#2355](https://github.com/KeeperHub/keeperhub/pull/2355) | 2026-09-08 | protocol writes return a 202 `executionId` envelope |
+| [#2298](https://github.com/KeeperHub/keeperhub/pull/2298) | 2026-09-08 | add an ID glossary and cross-link the onboarding guides |
+| [#2301](https://github.com/KeeperHub/keeperhub/pull/2301) | 2026-09-08 | scope the simulate preflight to tools that support it |
 
-The two that came out of this integration are the pair at the centre: **#2457** makes a
-revert raised inside a callee decodable, which is the failure this project hit first, and
-**#2472** documents the field that carries it. The rest came from the same reading of the
-surface - API keys that only worked on session routes, a sponsored send reported before it
-was broadcast, a monitoring page that was unusable on a phone.
+One correction belongs above that split rather than inside it: **#2387** merged first, and a
+later implementation of the same issue (#2417) took the registry slot in
+`plugins/web3/index.ts`. The step file it added is still in the tree and still tested, but it
+is not reachable through the plugin registry, so it is listed as a change that merged rather
+than counted as a live feature.
 
 ## 9. The ACP lane
 
