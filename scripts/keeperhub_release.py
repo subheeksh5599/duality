@@ -26,6 +26,7 @@ import urllib.request
 
 from eth_utils import keccak
 from web3 import Web3
+from web3.providers.rpc import HTTPProvider
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(ROOT, "contracts", "out")
@@ -109,9 +110,65 @@ def gate_error_abis() -> list[str]:
     return [json.dumps(errors)]
 
 
+class _FallbackProvider(HTTPProvider):
+    """An HTTP provider that rotates endpoints when one of them throttles us.
+
+    A single public RPC answers a burst with 429, and that surfaced to a reader as an
+    error banner over a live control surface - the same class of failure the browser
+    client already handles with a provider fallback. The list is the deployment's own
+    (`service/web/chain-config.json`, the endpoints the static build reads through), so
+    the two surfaces cannot drift into reading different chains.
+    """
+
+    def __init__(self, urls: list[str]):
+        self._urls = [u for u in urls if u]
+        self._i = 0
+        self._throttled: set[str] = set()
+        super().__init__(self._urls[0], request_kwargs={"timeout": 60})
+
+    def _rotate(self) -> bool:
+        self._i = (self._i + 1) % len(self._urls)
+        self.endpoint_uri = self._urls[self._i]
+        return self._i != 0
+
+    def make_request(self, method, params):  # type: ignore[override]
+        attempts = 0
+        last: Exception | None = None
+        while attempts < len(self._urls):
+            try:
+                resp = super().make_request(method, params)
+                err = str(resp.get("error") or "") if isinstance(resp, dict) else ""
+                if "429" in err or "too many requests" in err.lower():
+                    self._throttled.add(self.endpoint_uri)
+                    last = RuntimeError(err)
+                    attempts += 1
+                    self._rotate()
+                    time.sleep(0.5)
+                    continue
+                return resp
+            except Exception as exc:  # noqa: BLE001 - any transport failure is a reason to try the next
+                text = str(exc).lower()
+                if "429" in text or "too many requests" in text or "timeout" in text:
+                    self._throttled.add(self.endpoint_uri)
+                last = exc
+                attempts += 1
+                self._rotate()
+                time.sleep(0.5)
+        raise last if last else RuntimeError("no endpoint answered")
+
+
+def _config_rpcs() -> list[str]:
+    """The endpoints the static build reads through, so both read the same chain."""
+    path = os.path.join(ROOT, "service", "web", "chain-config.json")
+    try:
+        return list(json.load(open(path, encoding="utf-8")).get("rpcs") or [])
+    except Exception:  # noqa: BLE001
+        return []
+
+
 class Chain:
     def __init__(self, env: dict):
-        self.w3 = Web3(Web3.HTTPProvider(env["RPC_URL"]))
+        self.w3 = Web3(_FallbackProvider([env["RPC_URL"]] + _config_rpcs()))
         self.dep = json.load(open(DEPLOYMENT, encoding="utf-8"))
         c = Web3.to_checksum_address
         self.core = self.w3.eth.contract(address=c(self.dep["core"]), abi=self.abi("ERC8183.sol", "ERC8183"))
