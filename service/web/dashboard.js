@@ -215,7 +215,7 @@ function renderEvents(list) {
     const row = el('div', 'logrow');
     row.appendChild(el('span', 't', hms(e.at) + 'Z'));
     const blocked = e.wouldRevert === true || e.kind === 'release_held' ||
-      (e.reasonCode && e.reasonCode !== 'OK');
+      e.kind === 'release_failed' || (e.reasonCode && e.reasonCode !== 'OK');
     row.appendChild(el('span', 'k' + (blocked ? ' blocked' : ''), e.kind));
     const d = el('span', 'd', summarise(e));
     const link = e.transactionLink || (e.tx ? 'https://sepolia.basescan.org/tx/' + String(e.tx).replace(/^0x/, '0x') : null);
@@ -281,9 +281,15 @@ async function act(name) {
       renderJob(await api('/jobs/' + selected));
     }
     if (r.wouldRevert) fail('release held by the gate on job ' + selected + ': ' + (r.reasonCode || r.keeperHubReason || 'reverted'));
+    if (r.kind === 'release_failed') fail('release failed on job ' + selected + ': ' + (r.error || r.status || 'no execution'));
     if (r.kind === 'released') $('chip-health').innerHTML = '<span class="dotlive"></span>released';
     await Promise.all([health(), events()]);
-    await refreshList();
+    // The rail is a summary of every job, and rebuilding it costs a round trip per job
+    // against a public RPC. Awaiting it here held `busy` for up to half a minute after
+    // every action, so the buttons stayed disabled and the next click was swallowed -
+    // which reads as a dead page rather than a slow one. The action's own result is what
+    // the caller waits for; the rail catches up in the background.
+    refreshList().catch(() => {});
   } catch (e) {
     fail(name + ' on job ' + selected + ': ' + e.message);
   } finally {

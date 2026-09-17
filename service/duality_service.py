@@ -135,6 +135,7 @@ class State:
         rec = {
             "held": k["release_held"],
             "released": k["released"],
+            "release_failed": k["release_failed"],
             "reconciliations": k["reconciled"],
             "observations": k["evidence_observed"],
             "approvals": k["evidence_approved"],
@@ -285,8 +286,29 @@ class State:
         return v
 
     def release(self, job_id: int, corr: str) -> dict:
-        """Simulate through KeeperHub, then broadcast only if the gate allows it."""
+        """Ask the rail to release, and report only what actually happened.
+
+        Two gates before anything is broadcast, because each has been measured wrong on
+        its own: this service's reading of the predicate, which is the chain's own
+        function, and the rail's simulation of the same call.
+
+        Both are needed. Trusting the simulation alone produced a false success in the
+        record: the rail answered from a node whose view lagged the revocation, reported
+        the release as clean, the broadcast was then refused by the gate, and this method
+        wrote `released` with no execution id and no status - a lie in the log the rest of
+        this project treats as the record. Trusting the predicate alone would drop the
+        rail's second opinion, which is the thing that can see a block this process has
+        not read.
+
+        A broadcast that produces no execution is therefore recorded as a failure, not as
+        a release, and a terminal failure is recorded as one too.
+        """
         verdict = self.predicate(job_id)
+        if not verdict["ok"]:
+            self.counters["held"] += 1
+            return self.event("release_held", corr, jobId=job_id, via="predicate",
+                              reasonCode=verdict["reasonCode"], decision=verdict["decision"],
+                              explanation=verdict["explanation"], wouldRevert=True)
         body = {"contractAddress": self.ch.dep["core"], "network": K.NETWORK,
                 "abi": json.dumps(self.merged_abi), "functionName": "complete",
                 # the gate is a hook, so without this a refusal comes back as hex and the
@@ -304,19 +326,29 @@ class State:
         st2, sent = K.kh(self.env, "POST", "/api/execute/contract-call", body,
                          idem=f"duality-release-{job_id}-{int(time.time())}")
         exid = sent.get("executionId")
+        if not exid:
+            self.counters["release_failed"] += 1
+            return self.event("release_failed", corr, jobId=job_id, via="keeperhub",
+                              httpStatus=st2, reasonCode=verdict["reasonCode"],
+                              error=str(sent.get("error") or sent)[:300])
         link = sent.get("transactionLink")
+        status = sent.get("status")
         for _ in range(30):
-            if not exid:
-                break
-            _s, status = K.kh(self.env, "GET", f"/api/execute/{exid}/status")
-            if status.get("status") in ("completed", "failed"):
-                link = status.get("transactionLink") or link
-                sent = {**sent, **status}
+            _s, polled = K.kh(self.env, "GET", f"/api/execute/{exid}/status")
+            status = polled.get("status") or status
+            link = polled.get("transactionLink") or link
+            sent = {**sent, **polled}
+            if status in ("completed", "failed"):
                 break
             time.sleep(3)
+        if status == "failed":
+            self.counters["release_failed"] += 1
+            return self.event("release_failed", corr, jobId=job_id, via="keeperhub",
+                              executionId=exid, status=status, reasonCode=verdict["reasonCode"],
+                              error=str(sent.get("error"))[:300])
         self.counters["released"] += 1
         return self.event("released", corr, jobId=job_id, via="keeperhub", executionId=exid,
-                          status=sent.get("status"), transactionLink=link)
+                          status=status, transactionLink=link)
 
     def _writes_visible(self, job_id: int) -> bool:
         """True once the approval binds the current version, i.e. our writes are readable."""
@@ -370,6 +402,13 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(payload, indent=2, default=str).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        # A predicate answer is a statement about a block. A browser told otherwise will
+        # heuristically cache this and re-render a verdict from before the write that
+        # changed it, which is the precise failure this project exists to refuse - and it
+        # was found here by filming it: the page said RELEASE while the service said
+        # E_SUPERSEDED, and only the page was reading stale bytes.
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Correlation-Id", self.corr)
         self.end_headers()
