@@ -21,6 +21,14 @@ An ERC-8183 release gate. The standard proves the work at evaluation time. DUALI
 
 </div>
 
+**Submission.** Bounty track only, under **Best KeeperHub Feature**: the entry is a
+mergeable contribution to the KeeperHub repository, not an integration built around it. The
+work submitted is the upstream merges listed in
+[section 8](#8-how-it-uses-keeperhub), headed by
+[#2457](https://github.com/KeeperHub/keeperhub/pull/2457). The integration in this
+repository is what produced that fix, and it is here as the evidence for it. This repository
+is not entered in the main track.
+
 **Status.** Live on Base Sepolia: every release and every refusal in this repository is a
 real transaction with a hash in [`artifacts/`](artifacts/). Building the integration exposed
 a gap in the execution rail's error decoding, which is filed, fixed and merged upstream -
