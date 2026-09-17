@@ -304,11 +304,6 @@ class State:
         a release, and a terminal failure is recorded as one too.
         """
         verdict = self.predicate(job_id)
-        if not verdict["ok"]:
-            self.counters["held"] += 1
-            return self.event("release_held", corr, jobId=job_id, via="predicate",
-                              reasonCode=verdict["reasonCode"], decision=verdict["decision"],
-                              explanation=verdict["explanation"], wouldRevert=True)
         body = {"contractAddress": self.ch.dep["core"], "network": K.NETWORK,
                 "abi": json.dumps(self.merged_abi), "functionName": "complete",
                 # the gate is a hook, so without this a refusal comes back as hex and the
@@ -316,6 +311,11 @@ class State:
                 # reason code the gate actually returned
                 "errorAbis": K.gate_error_abis(),
                 "functionArgs": json.dumps([str(job_id), "0x" + keccak(text="approved").hex(), "0x"])}
+        # The rail is asked first even when this service already refuses, because its
+        # simulation is the evidence that the refusal is the gate's and not this process's
+        # opinion - it names the error the hook raised, with the job id and the reason
+        # code. Short-circuiting on our own verdict would be cheaper and would throw that
+        # away.
         st, sim = K.kh(self.env, "POST", "/api/execute/contract-call", dict(body, simulate=True),
                        idem=f"duality-sim-{job_id}-{int(time.time())}")
         if sim.get("wouldRevert"):
@@ -323,6 +323,15 @@ class State:
             return self.event("release_held", corr, jobId=job_id, via="keeperhub",
                               wouldRevert=True, keeperHubReason=str(sim.get("revertReason"))[:240],
                               reasonCode=verdict["reasonCode"], decision=verdict["decision"])
+        if not verdict["ok"]:
+            # The rail's view lagged: it offered to release what this service's reading of
+            # the chain refuses. Nothing is broadcast on one clean simulation - that is the
+            # path that produced a false success in this log once already.
+            self.counters["held"] += 1
+            return self.event("release_held", corr, jobId=job_id, via="predicate",
+                              wouldRevert=False, railSimulationClean=True,
+                              reasonCode=verdict["reasonCode"], decision=verdict["decision"],
+                              explanation=verdict["explanation"])
         st2, sent = K.kh(self.env, "POST", "/api/execute/contract-call", body,
                          idem=f"duality-release-{job_id}-{int(time.time())}")
         exid = sent.get("executionId")

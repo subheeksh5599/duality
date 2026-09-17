@@ -241,6 +241,8 @@ Evidence is append-only. A new observation is a new version, and no code path ed
 | an old approval cannot be replayed | the approval binds one `evidenceId`; clause 4 rejects a newer current version | `test_superseded_blocksRelease` |
 | one deliverable cannot serve two jobs | the hook binds the deliverable hash to the job at submit | `DeliverableReused`, observed during reruns |
 | the service and the chain cannot disagree | the service calls the on-chain predicate by `eth_call` | `service/duality_service.py` |
+| a transport failure cannot be read as a verdict | reads rotate across the deployment's published endpoints on a 429, a timeout, or any transport failure | `scripts/keeperhub_release.py` |
+| the surface never shows a verdict the chain has moved past | every JSON read is sent `no-store`; the browser cannot serve a cached decision | `service/duality_service.py` |
 | every state change is recorded | append-only JSONL audit log, each record referencing its predecessor | `artifacts/events.jsonl` |
 
 ## 7. How it uses Base
@@ -279,6 +281,17 @@ KeeperHub BROADCASTS the release
     sponsored   true
     tx          0x6248089e689d4dc65e721cf03399a95eaa991b8797b2ed4d3b992d89eec120e8
 ```
+
+A refusal arrives in one of two shapes, and both are recorded with the side that said it.
+
+```text
+the rail agrees      release_held  via=keeperhub  wouldRevert=true   E_SUPERSEDED
+                     the error is the gate's, named by the rail
+the rail has not     release_held  via=predicate  wouldRevert=false  E_SUPERSEDED
+caught up yet        railSimulationClean=true - nothing broadcast
+```
+
+The rail is asked to simulate *before* this service acts on its own verdict, because the rail's answer is the evidence that a refusal is the gate's and not this process's opinion. When its view has not caught up with a write the service can already read, the service refuses anyway, records which side said what, and broadcasts nothing. One clean simulation is not authority to move money: on that path this log once recorded a release that never happened - no execution, no transaction, no payment - while the money stayed put. Both rows are in `artifacts/events.jsonl`.
 
 This is worth dwelling on: KeeperHub's documented safe-first-write sequence is simulate, check `wouldRevert`, then broadcast. That is the same shape as DUALITY's thesis one layer down, and the gate is what makes `wouldRevert` informative rather than decorative, because the predicate behind it can fail after the approval it was made against.
 

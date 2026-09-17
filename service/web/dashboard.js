@@ -281,6 +281,16 @@ async function act(name) {
       renderJob(await api('/jobs/' + selected));
     }
     if (r.wouldRevert) fail('release held by the gate on job ' + selected + ': ' + (r.reasonCode || r.keeperHubReason || 'reverted'));
+    // A refusal has two shapes now, and the surface must show both. When the rail's
+    // simulation reports the revert, `wouldRevert` is true. When it does not - it answered
+    // from a view that had not caught up - the service refuses anyway on its own reading
+    // of the predicate, and that arrives as a held release with wouldRevert false. Showing
+    // nothing for that case would make a refusal that protected money look like a click
+    // that did nothing.
+    if (r.kind === 'release_held' && !r.wouldRevert) {
+      fail('release held on job ' + selected + ': the predicate refused (' + (r.reasonCode || 'no reason') +
+        ') and the rail\'s simulation was clean, so nothing was broadcast');
+    }
     if (r.kind === 'release_failed') fail('release failed on job ' + selected + ': ' + (r.error || r.status || 'no execution'));
     if (r.kind === 'released') $('chip-health').innerHTML = '<span class="dotlive"></span>released';
     await Promise.all([health(), events()]);
