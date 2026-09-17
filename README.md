@@ -35,17 +35,17 @@ An ERC-8183 release gate. The standard proves the work at evaluation time. DUALI
 - [7. How it uses Base](#7-how-it-uses-base)
 - [8. How it uses KeeperHub](#8-how-it-uses-keeperhub)
 - [9. The ACP lane](#9-the-acp-lane)
-- [9. Engineering decisions and the hard problems](#9-engineering-decisions-and-the-hard-problems)
-- [10. Real vs pending](#10-real-vs-pending)
-- [11. Tests](#11-tests)
-- [12. The web surfaces](#12-the-web-surfaces)
-- [13. Run locally](#13-run-locally)
-- [14. Configuration](#14-configuration)
-- [15. Deploy](#15-deploy)
-- [16. Project layout](#16-project-layout)
-- [17. Tech stack](#17-tech-stack)
-- [18. Prior art](#18-prior-art)
-- [19. Roadmap](#19-roadmap)
+- [10. Engineering decisions and the hard problems](#10-engineering-decisions-and-the-hard-problems)
+- [11. Real vs pending](#11-real-vs-pending)
+- [12. Tests](#12-tests)
+- [13. The web surfaces](#13-the-web-surfaces)
+- [14. Run locally](#14-run-locally)
+- [15. Configuration](#15-configuration)
+- [16. Deploy](#16-deploy)
+- [17. Project layout](#17-project-layout)
+- [18. Tech stack](#18-tech-stack)
+- [19. Prior art](#19-prior-art)
+- [20. Roadmap](#20-roadmap)
 - [License](#license)
 
 ---
@@ -296,6 +296,37 @@ The rail is asked to simulate *before* this service acts on its own verdict, bec
 This is worth dwelling on: KeeperHub's documented safe-first-write sequence is simulate, check `wouldRevert`, then broadcast. That is the same shape as DUALITY's thesis one layer down, and the gate is what makes `wouldRevert` informative rather than decorative, because the predicate behind it can fail after the approval it was made against.
 
 One gap found while building this is filed upstream as **[KeeperHub#2430](https://github.com/KeeperHub/keeperhub/issues/2430)**: a revert raised inside a callee contract cannot be decoded, because the API accepts a single `abi` field, so a hook's custom error reaches the caller as raw hex. It was accepted, the fix and its docs both merged (#2457, #2472), and the refusal in section 9 is recorded in exactly that raw form - because the hosted API does not read the new field yet. See section 9 for the measurement.
+
+### What the integration produced upstream
+
+Building the release gate is what exposed the gap above, and the fixes are merged rather
+than filed and abandoned. Every one below landed in September, newest first.
+
+| PR | merged | what it changed |
+|---|---|---|
+| [#2477](https://github.com/KeeperHub/keeperhub/pull/2477) | 2026-09-17 | fix: #2295 let the step label wrap on a phone instead of setting the table width |
+| [#2404](https://github.com/KeeperHub/keeperhub/pull/2404) | 2026-09-16 | feat(workflow): #2057 collect declared Manual input before an editor run |
+| [#2302](https://github.com/KeeperHub/keeperhub/pull/2302) | 2026-09-15 | feat(analytics): make monitoring reachable and readable on mobile |
+| [#2472](https://github.com/KeeperHub/keeperhub/pull/2472) | 2026-09-15 | docs: point an undecoded revert at errorAbis |
+| [#2457](https://github.com/KeeperHub/keeperhub/pull/2457) | 2026-09-15 | feat(execute): #2430 decode a revert raised in a callee from extra error ABIs |
+| [#2387](https://github.com/KeeperHub/keeperhub/pull/2387) | 2026-09-15 | feat(web3): #2375 check approvals against the Revoke.cash exploit list |
+| [#2446](https://github.com/KeeperHub/keeperhub/pull/2446) | 2026-09-14 | docs: #2408 document the failOnError toggle on Write Contract |
+| [#2409](https://github.com/KeeperHub/keeperhub/pull/2409) | 2026-09-14 | chore: correct stale keeperhub/ paths in messages that tell a reader where to look |
+| [#2385](https://github.com/KeeperHub/keeperhub/pull/2385) | 2026-09-14 | docs: #2380 fix stale README documentation links and keeperhub/ paths |
+| [#2386](https://github.com/KeeperHub/keeperhub/pull/2386) | 2026-09-10 | fix: #2374 never report a sponsored send as pre-broadcast when its outcome is unknown |
+| [#2362](https://github.com/KeeperHub/keeperhub/pull/2362) | 2026-09-09 | feat(actions): disclose requiredPlan on action schemas and document /api/features |
+| [#2297](https://github.com/KeeperHub/keeperhub/pull/2297) | 2026-09-09 | fix(analytics): accept kh_ API keys on the four session-only analytics routes |
+| [#2356](https://github.com/KeeperHub/keeperhub/pull/2356) | 2026-09-08 | docs: point agent/API consumers at wallet and address discovery (#2055) |
+| [#2355](https://github.com/KeeperHub/keeperhub/pull/2355) | 2026-09-08 | docs: protocol writes return a 202 executionId envelope; drop fabricated id prefixes |
+| [#2298](https://github.com/KeeperHub/keeperhub/pull/2298) | 2026-09-08 | docs: add ID glossary and cross-link headless onboarding with the verified-transaction guide |
+| [#2301](https://github.com/KeeperHub/keeperhub/pull/2301) | 2026-09-08 | docs: scope the simulate preflight to tools that support it |
+| [#2300](https://github.com/KeeperHub/keeperhub/pull/2300) | 2026-09-04 | fix(event-tracker): replace fixed 0-10s dispatch jitter with a per-chain token bucket |
+
+The two that came out of this integration are the pair at the centre: **#2457** makes a
+revert raised inside a callee decodable, which is the failure this project hit first, and
+**#2472** documents the field that carries it. The rest came from the same reading of the
+surface - API keys that only worked on session routes, a sponsored send reported before it
+was broadcast, a monitoring page that was unusable on a phone.
 
 ## 9. The ACP lane
 
