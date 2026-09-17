@@ -14,11 +14,21 @@ An ERC-8183 release gate. The standard proves the work at evaluation time. DUALI
 **[ERC-8183](https://eips.ethereum.org/EIPS/eip-8183)** &nbsp;·&nbsp;
 **[Live core](https://sepolia.basescan.org/address/0x86b951233E131d2dc0931aeB70ebc9Da17e998f6)** &nbsp;·&nbsp;
 **[Live gate](https://sepolia.basescan.org/address/0xF5ac445c06b8a7acf94Fc5Aa6C9eeB9A437da438)** &nbsp;·&nbsp;
+**[Demo](docs/demo.mp4)** &nbsp;·&nbsp;
 **[Evidence](artifacts/)** &nbsp;·&nbsp;
 **[Protocol spec](docs/PROTOCOL-SPEC.md)** &nbsp;·&nbsp;
 **[Limitations](docs/LIMITATIONS.md)**
 
 </div>
+
+**Status.** Live on Base Sepolia: every release and every refusal in this repository is a
+real transaction with a hash in [`artifacts/`](artifacts/). Building the integration exposed
+a gap in the execution rail's error decoding, which is filed, fixed and merged upstream -
+[#2457](https://github.com/KeeperHub/keeperhub/pull/2457), with
+[#2472](https://github.com/KeeperHub/keeperhub/pull/2472) documenting the field that carries
+it. That pair is part of seventeen merges in September, nine of them functional changes.
+What is not built yet is listed in [Limitations](docs/LIMITATIONS.md) rather than implied
+away.
 
 ---
 
