@@ -34,7 +34,7 @@ with a hash in [`artifacts/`](artifacts/). The integration exposed a gap in the 
 rail's error decoding - filed, fixed and merged upstream
 ([#2457](https://github.com/KeeperHub/keeperhub/pull/2457), with
 [#2472](https://github.com/KeeperHub/keeperhub/pull/2472) documenting the field). That pair
-is part of seventeen merges in September, nine of them functional. What is not built is in
+is part of eighteen merges in September, ten of them functional. What is not built is in
 [Limitations](docs/LIMITATIONS.md) rather than implied away.
 
 ---
@@ -273,10 +273,11 @@ recorded a release that never happened. Both rows are in `artifacts/events.jsonl
 Every one below landed in September. They are split, because a reader weighing this work
 should not have to count documentation commits as features.
 
-**Nine functional changes.**
+**Ten functional changes.**
 
 | PR | merged | lines | what it changed |
 |---|---|---|---|
+| [#2543](https://github.com/KeeperHub/keeperhub/pull/2543) | 2026-09-18 | `+78/-2` | an operator inside a quoted operand is read as a value, not as syntax |
 | [#2477](https://github.com/KeeperHub/keeperhub/pull/2477) | 2026-09-17 | `+20/-3` | a long step label wraps on a phone |
 | [#2404](https://github.com/KeeperHub/keeperhub/pull/2404) | 2026-09-16 | `+1176/-12` | declared Manual input is collected before a run |
 | [#2302](https://github.com/KeeperHub/keeperhub/pull/2302) | 2026-09-15 | `+632/-102` | monitoring usable on a phone |
