@@ -34,7 +34,7 @@ with a hash in [`artifacts/`](artifacts/). The integration exposed a gap in the 
 rail's error decoding - filed, fixed and merged upstream
 ([#2457](https://github.com/KeeperHub/keeperhub/pull/2457), with
 [#2472](https://github.com/KeeperHub/keeperhub/pull/2472) documenting the field). That pair
-is part of nineteen merges in September, eleven of them functional. What is not built is in
+is part of twenty merges in September, twelve functional. What is not built is in
 [Limitations](docs/LIMITATIONS.md) rather than implied away.
 
 ---
@@ -219,10 +219,10 @@ silence.
 | the evaluator cannot release invalid evidence | `beforeAction` reverts before the status change and the payment | `DualityGate.t.sol`, live txs |
 | the gate cannot trap funds | `claimRefund` is not hookable | `test_gateCannotBlockRefund` |
 | money cannot move twice | core status check plus a settlement flag | `test_releaseCannotHappenTwice`, live tx `9afb1dce` |
-| an old approval cannot be replayed | clause 4 rejects a newer current version for a bound `evidenceId` | `test_superseded_blocksRelease` |
-| one deliverable cannot serve two jobs | the hook binds the deliverable hash to the job at submit | `DeliverableReused`, observed during reruns |
+| an old approval cannot be replayed | clause 4 rejects a newer version for a bound `evidenceId` | `test_superseded_blocksRelease` |
+| one deliverable cannot serve two jobs | the hook binds the deliverable hash to the job at submit | `DeliverableReused`, seen in reruns |
 | the service and the chain cannot disagree | the service calls the on-chain predicate by `eth_call` | `service/duality_service.py` |
-| a transport failure cannot be read as a verdict | reads rotate across the published endpoints on a 429, a timeout or any transport failure | `scripts/keeperhub_release.py` |
+| a transport failure cannot be read as a verdict | reads rotate across the published endpoints on any transport failure | `scripts/keeperhub_release.py` |
 | the surface never shows a verdict the chain has moved past | every JSON read is sent `no-store` | `service/duality_service.py` |
 | every state change is recorded | append-only JSONL log, each record referencing its predecessor | `artifacts/events.jsonl` |
 
@@ -273,12 +273,13 @@ recorded a release that never happened. Both rows are in `artifacts/events.jsonl
 Every one below landed in September. They are split, because a reader weighing this work
 should not have to count documentation commits as features.
 
-**Eleven functional changes.**
+**Twelve functional changes.**
 
 | PR | merged | lines | what it changed |
 |---|---|---|---|
 | [#2515](https://github.com/KeeperHub/keeperhub/pull/2515) | 2026-09-18 | `+1156/-51` | the editor and manual runs stay off a phone, at every width |
 | [#2543](https://github.com/KeeperHub/keeperhub/pull/2543) | 2026-09-18 | `+78/-2` | an operator inside a quoted operand is read as a value, not as syntax |
+| [#2566](https://github.com/KeeperHub/keeperhub/pull/2566) | 2026-09-18 | `+100/-11` | a variable is read by span, not by braces |
 | [#2477](https://github.com/KeeperHub/keeperhub/pull/2477) | 2026-09-17 | `+20/-3` | a long step label wraps on a phone |
 | [#2404](https://github.com/KeeperHub/keeperhub/pull/2404) | 2026-09-16 | `+1176/-12` | declared Manual input is collected before a run |
 | [#2302](https://github.com/KeeperHub/keeperhub/pull/2302) | 2026-09-15 | `+632/-102` | monitoring usable on a phone |
@@ -374,7 +375,7 @@ by the hosted API, which `scripts/errorabis_probe.py` measures.
 | an ACP-registered agent paid by the escrow, and the binding to it | **real**: job 31, `payoutReceiver` is the agent's wallet, and `--verify` re-derives both commitments |
 | the merged `errorAbis` field, consumed | attached on every call; **the hosted API accepts and ignores it**, so the refusal is decoded via the gate's errors in `abi` |
 | clause 8 of the predicate (provenance) | **not enforced**: the hash is stored so the envelope stays auditable, but no branch reads it |
-| the agent signing for itself, or its own inference endpoint completing a job | **not possible / not exercised**: the registry issues no key this repository can use, and that endpoint answered HTTP 402 when the lane was built |
+| the agent signing for itself, or its endpoint completing a job | **not possible / not exercised**: the registry issues no key this repository can use, and that endpoint answered HTTP 402 |
 | the job's ERC-8004 agent-id slot | **0**: the registry issues an opaque id, so the identity is committed in the evidence envelope instead |
 | source verification on Basescan, and mainnet | **pending** / **not attempted**, chain 84532 only |
 
@@ -475,9 +476,9 @@ path outside the project.
 |---|---|
 | `RPC_URL` | EVM JSON-RPC endpoint for the target network |
 | `ADDRESS`, `PRIVATE_KEY` | admin, qualifier and committer on the deployment |
-| `BUYER`/`BUYER_KEY`, `PROVIDER`/`PROVIDER_KEY`, `JUDGE`/`JUDGE_KEY` | the client that funds escrow, the provider that delivers and is paid, and the evaluator the direct scripts use |
+| `BUYER`/`BUYER_KEY`, `PROVIDER`/`PROVIDER_KEY`, `JUDGE`/`JUDGE_KEY` | the client that funds escrow, the provider that delivers and is paid, and the evaluator the scripts use |
 | `KH_API_KEY` | KeeperHub direct-execution key, taken from the environment |
-| `ACP_AGENT_ID`, `ACP_AGENT_WALLET`, `ACP_AGENT_REGISTRY` | the registered agent the ACP lane pays, its wallet (which the escrow's `payoutReceiver` is pointed at) and where the registration resolves; required by that lane and nothing else |
+| `ACP_AGENT_ID`, `ACP_AGENT_WALLET`, `ACP_AGENT_REGISTRY` | the registered agent the ACP lane pays, its wallet (pointed at by the escrow's `payoutReceiver`) and where it resolves; required only by that lane |
 | `ACP_AGENT_TOKEN_ID`, `ACP_JOB_USDC` | optional: a numeric agent id if the registry issues one, and the lane's escrow size (1 by default) |
 
 Three distinct addresses are required: the core rejects a job whose client, provider and
